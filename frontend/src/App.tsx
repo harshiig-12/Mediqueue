@@ -318,9 +318,10 @@ const handleDeleteDoctor = async (id: number) => {
         }
       )
 
-      if (!response.ok) {
-        throw new Error('Could not book appointment.')
-      }
+     if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Could not book appointment.')
+}
 
       setMessage('Appointment booked successfully!')
 
