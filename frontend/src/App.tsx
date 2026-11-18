@@ -45,7 +45,8 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
+
   const [doctorName, setDoctorName] = useState('')
   const [patientId, setPatientId] = useState('')
   const [appointmentDateTime, setAppointmentDateTime] = useState('')
@@ -150,34 +151,34 @@ const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
   }
 
   // Edit an existing patient
-const handlePatientUpdate = async () => {
-  if (!editingPatient) return
+  const handlePatientUpdate = async () => {
+    if (!editingPatient) return
 
-  try {
-    const response = await fetch(
-      `${API}/patients/${editingPatient.id}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(editingPatient)
+    try {
+      const response = await fetch(
+        `${API}/patients/${editingPatient.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(editingPatient)
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Could not update patient.')
       }
-    )
 
-    if (!response.ok) {
-      throw new Error('Could not update patient.')
+      setMessage('Patient updated successfully!')
+      setEditingPatient(null)
+      await loadData()
+    } catch (err) {
+      setMessage(
+        err instanceof Error ? err.message : 'Update failed.'
+      )
     }
-
-    setMessage('Patient updated successfully!')
-    setEditingPatient(null)
-    await loadData()
-  } catch (err) {
-    setMessage(
-      err instanceof Error ? err.message : 'Update failed.'
-    )
   }
-}
 
   // Book an appointment
   const handleBooking = async (e: FormEvent<HTMLFormElement>) => {
@@ -220,20 +221,24 @@ const handlePatientUpdate = async () => {
     }
   }
 
-  // Cancel an appointment
+  // Cancel an appointment without deleting it
   const handleCancel = async (id: number) => {
     const confirmed = window.confirm(
-      'Are you sure you want to cancel this appointment? This will permanently delete it.'
+      'Are you sure you want to cancel this appointment?'
     )
 
     if (!confirmed) return
 
     try {
       setError('')
+      setMessage('')
 
-      const response = await fetch(`${API}/appointments/${id}`, {
-        method: 'DELETE'
-      })
+      const response = await fetch(
+        `${API}/appointments/${id}/cancel`,
+        {
+          method: 'PUT'
+        }
+      )
 
       if (!response.ok) {
         throw new Error('Could not cancel appointment.')
@@ -248,6 +253,62 @@ const handlePatientUpdate = async () => {
     }
   }
 
+  // Mark an appointment as completed
+  const handleComplete = async (id: number) => {
+    try {
+      setError('')
+      setMessage('')
+
+      const response = await fetch(
+        `${API}/appointments/${id}/complete`,
+        {
+          method: 'PUT'
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Could not complete appointment.')
+      }
+
+      setMessage('Appointment marked as completed!')
+      await loadData()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Completion failed.'
+      )
+    }
+  }
+
+  // Delete a patient
+  const handlePatientDelete = async (patient: Patient) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${patient.name}?`
+    )
+
+    if (!confirmed) return
+
+    try {
+      setError('')
+      const response = await fetch(
+        `${API}/patients/${patient.id}`,
+        {
+          method: 'DELETE'
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Could not delete patient.')
+      }
+
+      setMessage('Patient deleted successfully!')
+      await loadData()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Delete failed.'
+      )
+    }
+  }
+
   const formatDate = (date: string) =>
     new Date(date).toLocaleString('en-IN', {
       dateStyle: 'medium',
@@ -256,6 +317,14 @@ const handlePatientUpdate = async () => {
 
   const scheduledCount = appointments.filter(
     (appointment) => appointment.status === 'SCHEDULED'
+  ).length
+
+  const completedCount = appointments.filter(
+    (appointment) => appointment.status === 'COMPLETED'
+  ).length
+
+  const cancelledCount = appointments.filter(
+    (appointment) => appointment.status === 'CANCELLED'
   ).length
 
   return (
@@ -280,7 +349,11 @@ const handlePatientUpdate = async () => {
           <button
             key={page}
             className={`nav-item ${activePage === page ? 'active' : ''}`}
-            onClick={() => setActivePage(page)}
+            onClick={() => {
+              setActivePage(page)
+              setMessage('')
+              setError('')
+            }}
           >
             <span>
               {page === 'Dashboard' ? '▦' :
@@ -314,10 +387,13 @@ const handlePatientUpdate = async () => {
 
         {error && <div className="error-message">{error}</div>}
 
+        {message && <p className="form-message">{message}</p>}
+
         {loading ? (
           <p className="loading">Loading MediQueue data...</p>
         ) : (
           <>
+            {/* DASHBOARD */}
             {activePage === 'Dashboard' && (
               <>
                 <section className="welcome-banner">
@@ -352,6 +428,20 @@ const handlePatientUpdate = async () => {
                     <h2>{scheduledCount}</h2>
                     <span>Scheduled appointments</span>
                   </div>
+
+                  <div className="stat-card">
+                    <div className="stat-icon green">✓</div>
+                    <p>Completed</p>
+                    <h2>{completedCount}</h2>
+                    <span>Completed appointments</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <div className="stat-icon purple">×</div>
+                    <p>Cancelled</p>
+                    <h2>{cancelledCount}</h2>
+                    <span>Cancelled appointments</span>
+                  </div>
                 </section>
 
                 <section className="content-card">
@@ -373,11 +463,13 @@ const handlePatientUpdate = async () => {
                     appointments={appointments.slice(0, 5)}
                     formatDate={formatDate}
                     onCancel={handleCancel}
+                    onComplete={handleComplete}
                   />
                 </section>
               </>
             )}
 
+            {/* PATIENT DIRECTORY */}
             {activePage === 'Patients' && (
               <section className="content-card">
                 <div className="section-heading">
@@ -390,72 +482,53 @@ const handlePatientUpdate = async () => {
                     {patients.length} Patients
                   </span>
                 </div>
-<input
-  type="text"
-  placeholder="Search by name, phone, or email..."
-  value={searchTerm}
-  onChange={(e) => setSearchTerm(e.target.value)}
-  className="search-input"
-/>
+
+                <input
+                  type="text"
+                  placeholder="Search by name, phone, or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+
                 <div className="patient-grid">
                   {patients
-  .filter((patient) =>
-    `${patient.name} ${patient.phone} ${patient.email}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  )
-  .map((patient) => (
-                    <div className="patient-card" key={patient.id}>
-                      <div className="patient-avatar">
-                        {patient.name.charAt(0).toUpperCase()}
+                    .filter((patient) =>
+                      `${patient.name} ${patient.phone} ${patient.email}`
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase())
+                    )
+                    .map((patient) => (
+                      <div className="patient-card" key={patient.id}>
+                        <div className="patient-avatar">
+                          {patient.name.charAt(0).toUpperCase()}
+                        </div>
+
+                        <h3>{patient.name}</h3>
+                        <p>Patient ID: #{patient.id}</p>
+
+                        <div className="patient-details">
+                          <span>Age: {patient.age}</span>
+                          <span>Gender: {patient.gender}</span>
+                          <span>Phone: {patient.phone}</span>
+                          <span>Email: {patient.email}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingPatient({ ...patient })}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handlePatientDelete(patient)}
+                        >
+                          Delete
+                        </button>
                       </div>
-
-                      <h3>{patient.name}</h3>
-                      <p>Patient ID: #{patient.id}</p>
-
-                      <div className="patient-details">
-                        <span>Age: {patient.age}</span>
-                        <span>Gender: {patient.gender}</span>
-                        <span>Phone: {patient.phone}</span>
-                        <span>Email: {patient.email}</span>
-                      </div>
-                      <button
-  type="button"
-  onClick={() => setEditingPatient({ ...patient })}
->
-  Edit
-</button>
-<button
-  type="button"
-  onClick={async () => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${patient.name}?`
-    )
-
-    if (!confirmed) return
-
-    try {
-      const response = await fetch(`${API}/patients/${patient.id}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        throw new Error('Could not delete patient.')
-      }
-
-      setMessage('Patient deleted successfully!')
-      await loadData()
-    } catch (err) {
-      setMessage(
-        err instanceof Error ? err.message : 'Delete failed.'
-      )
-    }
-  }}
->
-  Delete
-</button>
-                    </div>
-                  ))}
+                    ))}
 
                   {patients.length === 0 && (
                     <p>No patients registered yet.</p>
@@ -463,92 +536,116 @@ const handlePatientUpdate = async () => {
                 </div>
               </section>
             )}
+
+            {/* EDIT PATIENT */}
             {editingPatient && (
-  <section className="content-card">
-    <div className="section-heading">
-      <h2>Edit Patient Details</h2>
-    </div>
+              <section className="content-card">
+                <div className="section-heading">
+                  <h2>Edit Patient Details</h2>
+                </div>
 
-    <form
-      className="booking-form"
-      onSubmit={(e) => {
-        e.preventDefault()
-        handlePatientUpdate()
-      }}
-    >
-      <label>Name</label>
-      <input
-        value={editingPatient.name}
-        onChange={(e) =>
-          setEditingPatient({ ...editingPatient, name: e.target.value })
-        }
-        required
-      />
+                <form
+                  className="booking-form"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    handlePatientUpdate()
+                  }}
+                >
+                  <label>Name</label>
+                  <input
+                    value={editingPatient.name}
+                    onChange={(e) =>
+                      setEditingPatient({
+                        ...editingPatient,
+                        name: e.target.value
+                      })
+                    }
+                    required
+                  />
 
-      <label>Age</label>
-      <input
-        type="number"
-        value={editingPatient.age}
-        onChange={(e) =>
-          setEditingPatient({ ...editingPatient, age: Number(e.target.value) })
-        }
-        required
-      />
+                  <label>Age</label>
+                  <input
+                    type="number"
+                    value={editingPatient.age}
+                    onChange={(e) =>
+                      setEditingPatient({
+                        ...editingPatient,
+                        age: Number(e.target.value)
+                      })
+                    }
+                    required
+                  />
 
-      <label>Gender</label>
-      <input
-        value={editingPatient.gender}
-        onChange={(e) =>
-          setEditingPatient({ ...editingPatient, gender: e.target.value })
-        }
-        required
-      />
+                  <label>Gender</label>
+                  <input
+                    value={editingPatient.gender}
+                    onChange={(e) =>
+                      setEditingPatient({
+                        ...editingPatient,
+                        gender: e.target.value
+                      })
+                    }
+                    required
+                  />
 
-      <label>Phone</label>
-      <input
-        value={editingPatient.phone}
-        onChange={(e) =>
-          setEditingPatient({ ...editingPatient, phone: e.target.value })
-        }
-        required
-      />
+                  <label>Phone</label>
+                  <input
+                    value={editingPatient.phone}
+                    onChange={(e) =>
+                      setEditingPatient({
+                        ...editingPatient,
+                        phone: e.target.value
+                      })
+                    }
+                    required
+                  />
 
-      <label>Email</label>
-      <input
-        type="email"
-        value={editingPatient.email}
-        onChange={(e) =>
-          setEditingPatient({ ...editingPatient, email: e.target.value })
-        }
-        required
-      />
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={editingPatient.email}
+                    onChange={(e) =>
+                      setEditingPatient({
+                        ...editingPatient,
+                        email: e.target.value
+                      })
+                    }
+                    required
+                  />
 
-      <label>Date of Birth</label>
-      <input
-        type="date"
-        value={editingPatient.dateOfBirth || ''}
-        onChange={(e) =>
-          setEditingPatient({ ...editingPatient, dateOfBirth: e.target.value })
-        }
-      />
+                  <label>Date of Birth</label>
+                  <input
+                    type="date"
+                    value={editingPatient.dateOfBirth || ''}
+                    onChange={(e) =>
+                      setEditingPatient({
+                        ...editingPatient,
+                        dateOfBirth: e.target.value
+                      })
+                    }
+                  />
 
-      <button type="submit">Save Changes</button>
-      <button
-        type="button"
-        onClick={() => setEditingPatient(null)}
-      >
-        Cancel
-      </button>
-    </form>
-  </section>
-)}
+                  <button type="submit">Save Changes</button>
 
+                  <button
+                    type="button"
+                    onClick={() => setEditingPatient(null)}
+                  >
+                    Cancel
+                  </button>
+                </form>
+              </section>
+            )}
+
+            {/* REGISTER PATIENT */}
             {activePage === 'Register Patient' && (
               <section className="content-card">
                 <div className="section-heading">
                   <div>
                     <h2>Register New Patient</h2>
-                    <p>Enter patient details to add them to the hospital database.</p>
+                    <p>
+                      Enter patient details to add them to the hospital database.
+                    </p>
                   </div>
                 </div>
 
@@ -625,6 +722,7 @@ const handlePatientUpdate = async () => {
               </section>
             )}
 
+            {/* APPOINTMENTS */}
             {activePage === 'Appointments' && (
               <section className="content-card">
                 <div className="section-heading">
@@ -642,15 +740,14 @@ const handlePatientUpdate = async () => {
                   appointments={appointments}
                   formatDate={formatDate}
                   onCancel={handleCancel}
+                  onComplete={handleComplete}
                 />
-
-                {message && (
-                  <p className="form-message">{message}</p>
-                )}
 
                 <div className="booking-form">
                   <h2>Book New Appointment</h2>
-                  <p>Schedule an appointment for a registered patient.</p>
+                  <p>
+                    Schedule an appointment for a registered patient.
+                  </p>
 
                   <form onSubmit={handleBooking}>
                     <label>Patient</label>
@@ -680,7 +777,9 @@ const handlePatientUpdate = async () => {
                     <input
                       type="datetime-local"
                       value={appointmentDateTime}
-                      onChange={(e) => setAppointmentDateTime(e.target.value)}
+                      onChange={(e) =>
+                        setAppointmentDateTime(e.target.value)
+                      }
                       required
                     />
 
@@ -695,10 +794,6 @@ const handlePatientUpdate = async () => {
                     <button className="submit-btn" type="submit">
                       + Book Appointment
                     </button>
-
-                    {message && (
-                      <p className="form-message">{message}</p>
-                    )}
                   </form>
                 </div>
               </section>
@@ -710,14 +805,18 @@ const handlePatientUpdate = async () => {
   )
 }
 
+// APPOINTMENT TABLE COMPONENT
+
 function AppointmentTable({
   appointments,
   formatDate,
-  onCancel
+  onCancel,
+  onComplete
 }: {
   appointments: Appointment[]
   formatDate: (date: string) => string
   onCancel: (id: number) => void
+  onComplete: (id: number) => void
 }) {
   return (
     <div className="table-wrapper">
@@ -746,22 +845,41 @@ function AppointmentTable({
               </td>
 
               <td>{appointment.doctorName}</td>
-              <td>{formatDate(appointment.appointmentDateTime)}</td>
+
+              <td>
+                {formatDate(appointment.appointmentDateTime)}
+              </td>
+
               <td>{appointment.reason}</td>
 
               <td>
-                <span className="status-badge">
+                <span
+                  className={`status-badge ${appointment.status.toLowerCase()}`}
+                >
                   {appointment.status}
                 </span>
               </td>
 
               <td>
-                <button
-                  type="button"
-                  onClick={() => onCancel(appointment.id)}
-                >
-                  Cancel
-                </button>
+                {appointment.status === 'SCHEDULED' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onComplete(appointment.id)}
+                    >
+                      Complete
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onCancel(appointment.id)}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <span>No actions available</span>
+                )}
               </td>
             </tr>
           ))}
