@@ -37,12 +37,13 @@ public class AppointmentController {
         return appointmentService.getAppointmentById(id);
     }
 
-    @PostMapping("/{patientId}")
-    public Appointment createAppointment(
-            @RequestBody Appointment appointment,
-            @PathVariable Long patientId) {
-        return appointmentService.createAppointment(appointment, patientId);
-    }
+   @PostMapping("/{patientId}/{doctorId}")
+public Appointment createAppointment(
+        @RequestBody Appointment appointment,
+        @PathVariable Long patientId,
+        @PathVariable Long doctorId) {
+    return appointmentService.createAppointment(appointment, patientId, doctorId);
+}
 
     @PutMapping("/{id}/complete")
     public Appointment completeAppointment(@PathVariable Long id) {

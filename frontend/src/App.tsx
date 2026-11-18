@@ -78,7 +78,7 @@ const [doctorMessage, setDoctorMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
 
-  const [doctorName, setDoctorName] = useState('')
+  const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [patientId, setPatientId] = useState('')
   const [appointmentDateTime, setAppointmentDateTime] = useState('')
   const [reason, setReason] = useState('')
@@ -304,18 +304,17 @@ const handleDeleteDoctor = async (id: number) => {
 
     try {
       const response = await fetch(
-        `${API}/appointments/${patientId}`,
+        `${API}/appointments/${patientId}/${selectedDoctorId}`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            doctorName,
-            appointmentDateTime,
-            reason,
-            status: 'SCHEDULED'
-          })
+  appointmentDateTime,
+  reason,
+  status: 'SCHEDULED'
+})
         }
       )
 
@@ -325,7 +324,7 @@ const handleDeleteDoctor = async (id: number) => {
 
       setMessage('Appointment booked successfully!')
 
-      setDoctorName('')
+      
       setPatientId('')
       setAppointmentDateTime('')
       setReason('')
@@ -1049,13 +1048,19 @@ page === 'Doctors' ? '⚕' : '▣'}
                       ))}
                     </select>
 
-                    <label>Doctor Name</label>
-                    <input
-                      value={doctorName}
-                      onChange={(e) => setDoctorName(e.target.value)}
-                      placeholder="Enter doctor name"
-                      required
-                    />
+                    <label>Doctor</label>
+<select
+  value={selectedDoctorId}
+  onChange={(e) => setSelectedDoctorId(e.target.value)}
+  required
+>
+  <option value="">Select a Doctor</option>
+  {doctors.map((doctor) => (
+    <option key={doctor.id} value={doctor.id}>
+      {doctor.name} - {doctor.specialization}
+    </option>
+  ))}
+</select>
 
                     <label>Appointment Date and Time</label>
                     <input

@@ -6,8 +6,10 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.mediqueue.entity.Appointment;
+import com.mediqueue.entity.Doctor;
 import com.mediqueue.entity.Patient;
 import com.mediqueue.repository.AppointmentRepository;
+import com.mediqueue.repository.DoctorRepository;
 import com.mediqueue.repository.PatientRepository;
 
 @Service
@@ -15,13 +17,15 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final PatientRepository patientRepository;
+    private final DoctorRepository doctorRepository;
 
-    public AppointmentService(
-            AppointmentRepository appointmentRepository,
-            PatientRepository patientRepository) {
-        this.appointmentRepository = appointmentRepository;
-        this.patientRepository = patientRepository;
-    }
+   public AppointmentService(AppointmentRepository appointmentRepository,
+                          PatientRepository patientRepository,
+                          DoctorRepository doctorRepository) {
+    this.appointmentRepository = appointmentRepository;
+    this.patientRepository = patientRepository;
+    this.doctorRepository = doctorRepository;
+}
 
     public List<Appointment> getAllAppointments() {
         return appointmentRepository.findAll();
@@ -33,18 +37,20 @@ public class AppointmentService {
                         new RuntimeException("Appointment not found"));
     }
 
-    public Appointment createAppointment(
-            Appointment appointment, Long patientId) {
+   public Appointment createAppointment(Appointment appointment, Long patientId, Long doctorId) {
+    Patient patient = patientRepository.findById(patientId)
+            .orElseThrow(() -> new RuntimeException("Patient not found"));
 
-        Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() ->
-                        new RuntimeException("Patient not found"));
+    Doctor doctor = doctorRepository.findById(doctorId)
+            .orElseThrow(() -> new RuntimeException("Doctor not found"));
 
-        appointment.setPatient(patient);
-        appointment.setStatus("SCHEDULED");
+    appointment.setPatient(patient);
+    appointment.setDoctor(doctor);
+    appointment.setDoctorName(doctor.getName());
+    appointment.setStatus("SCHEDULED");
 
-        return appointmentRepository.save(appointment);
-    }
+    return appointmentRepository.save(appointment);
+}
 
     public Appointment completeAppointment(Long id) {
         Appointment appointment = getAppointmentById(id);
