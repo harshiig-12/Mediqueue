@@ -61,6 +61,12 @@ function App() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [editingDoctorId, setEditingDoctorId] = useState<number | null>(null)
+const [editDoctorName, setEditDoctorName] = useState('')
+const [editSpecialization, setEditSpecialization] = useState('')
+const [editDoctorPhone, setEditDoctorPhone] = useState('')
+const [editDoctorEmail, setEditDoctorEmail] = useState('')
+const [editConsultationFee, setEditConsultationFee] = useState('')
   const [newDoctorName, setNewDoctorName] = useState('')
 const [newSpecialization, setNewSpecialization] = useState('')
 const [newDoctorPhone, setNewDoctorPhone] = useState('')
@@ -208,6 +214,56 @@ const [doctorMessage, setDoctorMessage] = useState('')
     setDoctorMessage(
       err instanceof Error ? err.message : 'Registration failed.'
     )
+  }
+}
+
+const handleEditDoctor = (doctor: Doctor) => {
+  setEditingDoctorId(doctor.id)
+  setEditDoctorName(doctor.name)
+  setEditSpecialization(doctor.specialization)
+  setEditDoctorPhone(doctor.phone)
+  setEditDoctorEmail(doctor.email)
+  setEditConsultationFee(String(doctor.consultationFee))
+}
+
+const handleUpdateDoctor = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+
+  try {
+    const response = await fetch(`${API}/doctors/${editingDoctorId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editDoctorName,
+        specialization: editSpecialization,
+        phone: editDoctorPhone,
+        email: editDoctorEmail,
+        consultationFee: Number(editConsultationFee)
+      })
+    })
+
+    if (!response.ok) throw new Error('Could not update doctor.')
+
+    setEditingDoctorId(null)
+    await loadData()
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Update failed.')
+  }
+}
+
+const handleDeleteDoctor = async (id: number) => {
+  if (!window.confirm('Are you sure you want to delete this doctor?')) return
+
+  try {
+    const response = await fetch(`${API}/doctors/${id}`, {
+      method: 'DELETE'
+    })
+
+    if (!response.ok) throw new Error('Could not delete doctor.')
+
+    await loadData()
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Delete failed.')
   }
 }
 
@@ -813,6 +869,76 @@ page === 'Doctors' ? '⚕' : '▣'}
             <span>Email: {doctor.email}</span>
             <span>Consultation Fee: ₹{doctor.consultationFee}</span>
           </div>
+          <div className="card-actions">
+  <button
+    className="edit-btn"
+    onClick={() => handleEditDoctor(doctor)}
+  >
+    Edit
+  </button>
+
+  <button
+    className="delete-btn"
+    onClick={() => handleDeleteDoctor(doctor.id)}
+  >
+    Delete
+  </button>
+</div>
+{editingDoctorId === doctor.id && (
+  <form onSubmit={handleUpdateDoctor} className="booking-form">
+    <h3>Edit Doctor Details</h3>
+
+    <label>Doctor Name</label>
+    <input
+      value={editDoctorName}
+      onChange={(e) => setEditDoctorName(e.target.value)}
+      required
+    />
+
+    <label>Specialization</label>
+    <input
+      value={editSpecialization}
+      onChange={(e) => setEditSpecialization(e.target.value)}
+      required
+    />
+
+    <label>Phone</label>
+    <input
+      value={editDoctorPhone}
+      onChange={(e) => setEditDoctorPhone(e.target.value)}
+      required
+    />
+
+    <label>Email</label>
+    <input
+      type="email"
+      value={editDoctorEmail}
+      onChange={(e) => setEditDoctorEmail(e.target.value)}
+      required
+    />
+
+    <label>Consultation Fee (₹)</label>
+    <input
+      type="number"
+      min="0"
+      value={editConsultationFee}
+      onChange={(e) => setEditConsultationFee(e.target.value)}
+      required
+    />
+
+    <button type="submit" className="submit-btn">
+      Save Changes
+    </button>
+
+    <button
+      type="button"
+      className="edit-btn"
+      onClick={() => setEditingDoctorId(null)}
+    >
+      Cancel
+    </button>
+  </form>
+)}
         </div>
       ))}
 
