@@ -41,6 +41,23 @@ public class AppointmentService {
                         new RuntimeException("Patient not found"));
 
         appointment.setPatient(patient);
+        appointment.setStatus("SCHEDULED");
+
+        return appointmentRepository.save(appointment);
+    }
+
+    public Appointment completeAppointment(Long id) {
+        Appointment appointment = getAppointmentById(id);
+
+        appointment.setStatus("COMPLETED");
+
+        return appointmentRepository.save(appointment);
+    }
+
+    public Appointment cancelAppointment(Long id) {
+        Appointment appointment = getAppointmentById(id);
+
+        appointment.setStatus("CANCELLED");
 
         return appointmentRepository.save(appointment);
     }
@@ -48,7 +65,8 @@ public class AppointmentService {
     public void deleteAppointment(Long id) {
         appointmentRepository.deleteById(id);
     }
+
     public void deleteAppointmentsByPatientId(Long patientId) {
-    appointmentRepository.deleteByPatientId(patientId);
-}
+        appointmentRepository.deleteByPatientId(patientId);
+    }
 }
