@@ -13,6 +13,14 @@ interface Patient {
   email: string
   dateOfBirth?: string
 }
+interface Doctor {
+  id: number
+  name: string
+  specialization: string
+  phone: string
+  email: string
+  consultationFee: number
+}
 
 interface Appointment {
   id: number
@@ -23,25 +31,42 @@ interface Appointment {
   patient: Patient
 }
 
-async function fetchDashboardData() {
-  const [patientResponse, appointmentResponse] = await Promise.all([
-    fetch(`${API}/patients`),
-    fetch(`${API}/appointments`)
-  ])
 
-  if (!patientResponse.ok || !appointmentResponse.ok) {
+async function fetchDashboardData() {
+  const [patientResponse, appointmentResponse, doctorResponse] =
+    await Promise.all([
+      fetch(`${API}/patients`),
+      fetch(`${API}/appointments`),
+      fetch(`${API}/doctors`)
+    ])
+
+  if (
+    !patientResponse.ok ||
+    !appointmentResponse.ok ||
+    !doctorResponse.ok
+  ) {
     throw new Error('Unable to load data from the server.')
   }
 
   const patients: Patient[] = await patientResponse.json()
   const appointments: Appointment[] = await appointmentResponse.json()
+  const doctors: Doctor[] = await doctorResponse.json()
 
-  return { patients, appointments }
+  return { patients, appointments, doctors }
 }
+
+ 
 
 function App() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [newDoctorName, setNewDoctorName] = useState('')
+const [newSpecialization, setNewSpecialization] = useState('')
+const [newDoctorPhone, setNewDoctorPhone] = useState('')
+const [newDoctorEmail, setNewDoctorEmail] = useState('')
+const [newConsultationFee, setNewConsultationFee] = useState('')
+const [doctorMessage, setDoctorMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -72,6 +97,7 @@ function App() {
         if (!cancelled) {
           setPatients(data.patients)
           setAppointments(data.appointments)
+          setDoctors(data.doctors)
         }
       })
       .catch((err: unknown) => {
@@ -99,6 +125,7 @@ function App() {
 
       setPatients(data.patients)
       setAppointments(data.appointments)
+      setDoctors(data.doctors)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Something went wrong.'
@@ -149,6 +176,40 @@ function App() {
       )
     }
   }
+
+  const handleDoctorRegistration = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  setDoctorMessage('')
+
+  try {
+    const response = await fetch(`${API}/doctors`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newDoctorName,
+        specialization: newSpecialization,
+        phone: newDoctorPhone,
+        email: newDoctorEmail,
+        consultationFee: Number(newConsultationFee)
+      })
+    })
+
+    if (!response.ok) throw new Error('Could not register doctor.')
+
+    setDoctorMessage('Doctor registered successfully!')
+    setNewDoctorName('')
+    setNewSpecialization('')
+    setNewDoctorPhone('')
+    setNewDoctorEmail('')
+    setNewConsultationFee('')
+
+    await loadData()
+  } catch (err) {
+    setDoctorMessage(
+      err instanceof Error ? err.message : 'Registration failed.'
+    )
+  }
+}
 
   // Edit an existing patient
   const handlePatientUpdate = async () => {
@@ -344,6 +405,7 @@ function App() {
           'Dashboard',
           'Patients',
           'Register Patient',
+          'Doctors',
           'Appointments'
         ].map((page) => (
           <button
@@ -358,7 +420,8 @@ function App() {
             <span>
               {page === 'Dashboard' ? '▦' :
                 page === 'Patients' ? '♙' :
-                  page === 'Register Patient' ? '+' : '▣'}
+                  page === 'Register Patient' ? '+' :
+page === 'Doctors' ? '⚕' : '▣'}
             </span>
             {page}
           </button>
@@ -721,6 +784,101 @@ function App() {
                 </div>
               </section>
             )}
+
+
+{activePage === 'Doctors' && (
+  <section className="content-card">
+    <div className="section-heading">
+      <div>
+        <h2>Doctor Management</h2>
+        <p>View and manage registered doctors</p>
+      </div>
+
+      <span className="count-label">
+        {doctors.length} Doctors
+      </span>
+    </div>
+
+    <div className="patient-grid">
+      {doctors.map((doctor) => (
+        <div className="patient-card" key={doctor.id}>
+          <div className="patient-avatar">⚕</div>
+
+          <h3>{doctor.name}</h3>
+          <p>Doctor ID: #{doctor.id}</p>
+
+          <div className="patient-details">
+            <span>Specialization: {doctor.specialization}</span>
+            <span>Phone: {doctor.phone}</span>
+            <span>Email: {doctor.email}</span>
+            <span>Consultation Fee: ₹{doctor.consultationFee}</span>
+          </div>
+        </div>
+      ))}
+
+      {doctors.length === 0 && (
+        <p>No doctors registered yet.</p>
+      )}
+    </div>
+    <div className="booking-form">
+  <h2>Register New Doctor</h2>
+  <p>Enter doctor details to add them to the hospital database.</p>
+
+  <form onSubmit={handleDoctorRegistration}>
+    <label>Doctor Name</label>
+    <input
+      value={newDoctorName}
+      onChange={(e) => setNewDoctorName(e.target.value)}
+      placeholder="Enter full name"
+      required
+    />
+
+    <label>Specialization</label>
+    <input
+      value={newSpecialization}
+      onChange={(e) => setNewSpecialization(e.target.value)}
+      placeholder="e.g. Cardiologist"
+      required
+    />
+
+    <label>Phone Number</label>
+    <input
+      type="tel"
+      value={newDoctorPhone}
+      onChange={(e) => setNewDoctorPhone(e.target.value)}
+      placeholder="Enter phone number"
+      required
+    />
+
+    <label>Email</label>
+    <input
+      type="email"
+      value={newDoctorEmail}
+      onChange={(e) => setNewDoctorEmail(e.target.value)}
+      placeholder="Enter email address"
+      required
+    />
+
+    <label>Consultation Fee (₹)</label>
+    <input
+      type="number"
+      min="0"
+      value={newConsultationFee}
+      onChange={(e) => setNewConsultationFee(e.target.value)}
+      placeholder="Enter fee"
+      required
+    />
+
+    <button className="submit-btn" type="submit">
+      + Register Doctor
+    </button>
+
+    {doctorMessage && <p className="form-message">{doctorMessage}</p>}
+  </form>
+</div>
+  </section>
+)}
+
 
             {/* APPOINTMENTS */}
             {activePage === 'Appointments' && (
