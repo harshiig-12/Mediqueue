@@ -25,6 +25,7 @@ interface Doctor {
 interface Appointment {
   id: number
   doctorName: string
+  doctor?: Doctor
   appointmentDateTime: string
   reason: string
   status: string
@@ -62,6 +63,9 @@ function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState('All')
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState(
+  new Date().toISOString().split('T')[0]
+)
   const [editingDoctorId, setEditingDoctorId] = useState<number | null>(null)
 const [editDoctorName, setEditDoctorName] = useState('')
 const [editSpecialization, setEditSpecialization] = useState('')
@@ -1029,22 +1033,44 @@ page === 'Doctors' ? '⚕' : '▣'}
     ))}
   </select>
 </div>
+<div className="filter-container">
+  <label>Schedule Date:</label>
+  <input
+    type="date"
+    value={selectedScheduleDate}
+    onChange={(e) => setSelectedScheduleDate(e.target.value)}
+  />
+</div>
                   <span className="count-label">
-                    {appointments.length} Appointments
+                    {appointments.filter((appointment) => {
+  const matchesDoctor =
+    selectedDoctorFilter === 'All' ||
+    appointment.doctorName ===
+      doctors.find(
+        (doctor) => String(doctor.id) === selectedDoctorFilter
+      )?.name
+
+  const matchesDate =
+    appointment.appointmentDateTime?.slice(0, 10) ===
+    selectedScheduleDate
+
+  return matchesDoctor && matchesDate
+}).length} Appointments
                   </span>
                 </div>
 
                 <AppointmentTable
-                  appointments={
-  selectedDoctorFilter === 'All'
-    ? appointments
-    : appointments.filter((appointment) => {
-        const selectedDoctor = doctors.find(
-          (doctor) => String(doctor.id) === selectedDoctorFilter
-        )
-        return appointment.doctorName === selectedDoctor?.name
-      })
-}
+                 appointments={appointments.filter((appointment) => {
+  const matchesDoctor =
+    selectedDoctorFilter === 'All' ||
+    String(appointment.doctor?.id) === selectedDoctorFilter
+
+  const matchesDate =
+    appointment.appointmentDateTime?.slice(0, 10) ===
+    selectedScheduleDate
+
+  return matchesDoctor && matchesDate
+})}
                   formatDate={formatDate}
                   onCancel={handleCancel}
                   onComplete={handleComplete}
