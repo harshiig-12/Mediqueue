@@ -61,6 +61,7 @@ function App() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [selectedDoctorFilter, setSelectedDoctorFilter] = useState('All')
   const [editingDoctorId, setEditingDoctorId] = useState<number | null>(null)
 const [editDoctorName, setEditDoctorName] = useState('')
 const [editSpecialization, setEditSpecialization] = useState('')
@@ -1014,14 +1015,36 @@ page === 'Doctors' ? '⚕' : '▣'}
                     <h2>Appointment Management</h2>
                     <p>View all hospital appointments</p>
                   </div>
-
+<div className="filter-container">
+  <label>Filter by Doctor:</label>
+  <select
+    value={selectedDoctorFilter}
+    onChange={(e) => setSelectedDoctorFilter(e.target.value)}
+  >
+    <option value="All">All Doctors</option>
+    {doctors.map((doctor) => (
+      <option key={doctor.id} value={String(doctor.id)}>
+        {doctor.name}
+      </option>
+    ))}
+  </select>
+</div>
                   <span className="count-label">
                     {appointments.length} Appointments
                   </span>
                 </div>
 
                 <AppointmentTable
-                  appointments={appointments}
+                  appointments={
+  selectedDoctorFilter === 'All'
+    ? appointments
+    : appointments.filter((appointment) => {
+        const selectedDoctor = doctors.find(
+          (doctor) => String(doctor.id) === selectedDoctorFilter
+        )
+        return appointment.doctorName === selectedDoctor?.name
+      })
+}
                   formatDate={formatDate}
                   onCancel={handleCancel}
                   onComplete={handleComplete}
