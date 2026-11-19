@@ -103,10 +103,16 @@ const [doctorMessage, setDoctorMessage] = useState('')
   const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [patientId, setPatientId] = useState('')
   const [appointmentDateTime, setAppointmentDateTime] = useState('')
+  const [selectedDate, setSelectedDate] = useState('')
+const [availableSlots, setAvailableSlots] = useState<string[]>([])
   const [reason, setReason] = useState('')
   const [message, setMessage] = useState('')
 
   const [activePage, setActivePage] = useState('Dashboard')
+
+
+
+
 
   // Patient registration form
   const [newName, setNewName] = useState('')
@@ -117,6 +123,46 @@ const [doctorMessage, setDoctorMessage] = useState('')
   const [newDateOfBirth, setNewDateOfBirth] = useState('')
   const [registrationMessage, setRegistrationMessage] = useState('')
   const [appointmentType, setAppointmentType] = useState('GENERAL')
+
+useEffect(() => {
+  if (!selectedDoctorId || !selectedDate || !appointmentType) {
+    return
+  }
+
+  let cancelled = false
+
+  const params = new URLSearchParams({
+    doctorId: selectedDoctorId,
+    date: selectedDate,
+    appointmentType
+  })
+
+  fetch(`${API}/appointments/available-slots?${params.toString()}`)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error('Could not load available slots.')
+      }
+      return response.json() as Promise<string[]>
+    })
+    .then((slots) => {
+      if (!cancelled) {
+        setAvailableSlots(slots)
+      }
+    })
+    .catch((error) => {
+      if (!cancelled) {
+        setAvailableSlots([])
+        setMessage(
+          error instanceof Error ? error.message : 'Failed to load slots.'
+        )
+      }
+    })
+
+  return () => {
+    cancelled = true
+  }
+}, [selectedDoctorId, selectedDate, appointmentType])
+
 
   useEffect(() => {
     let cancelled = false
@@ -1299,15 +1345,36 @@ page === 'Doctors' ? '⚕' : '▣'}
   ))}
 </select>
 
-                    <label>Appointment Date and Time</label>
-                    <input
-                      type="datetime-local"
-                      value={appointmentDateTime}
-                      onChange={(e) =>
-                        setAppointmentDateTime(e.target.value)
-                      }
-                      required
-                    />
+                   
+<label>Appointment Date</label>
+<input
+  type="date"
+  value={selectedDate}
+  min={new Date().toLocaleDateString('en-CA')}
+  onChange={(e) => {
+    setSelectedDate(e.target.value)
+    setAppointmentDateTime('')
+  }}
+  required
+/>
+
+<label>Available Time Slots</label>
+<select
+  value={appointmentDateTime}
+  onChange={(e) => setAppointmentDateTime(e.target.value)}
+  required
+>
+  <option value="">Select a time slot</option>
+  {availableSlots.map((slot) => (
+    <option key={slot} value={slot}>
+      {new Date(slot).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      })}
+    </option>
+  ))}
+</select>
+
 
 <label>Appointment Type</label>
 <select
@@ -1328,6 +1395,10 @@ page === 'Doctors' ? '⚕' : '▣'}
     appointmentType === 'COMPLEX' ? 45 : 20
   } minutes
 </p>
+
+{selectedDate && availableSlots.length === 0 && (
+  <p>No available slots for this date. Try another date.</p>
+)}
 
                     <label>Reason for Visit</label>
                     <input

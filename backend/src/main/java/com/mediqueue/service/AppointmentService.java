@@ -2,9 +2,11 @@
 package com.mediqueue.service;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -256,4 +258,70 @@ public class AppointmentService {
     public void deleteAppointmentsByPatientId(Long patientId) {
         appointmentRepository.deleteByPatientId(patientId);
     }
+
+public List<LocalDateTime> getAvailableSlots(
+        Long doctorId,
+        LocalDate date,
+        String appointmentType) {
+
+    Doctor doctor = doctorRepository.findById(doctorId)
+            .orElseThrow(() ->
+                    new RuntimeException("Doctor not found"));
+
+    int duration = calculateDuration(appointmentType);
+
+    String dayName = date.getDayOfWeek()
+            .getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+
+    boolean availableDay = List.of(
+            doctor.getAvailableDays().split(","))
+            .stream()
+            .map(String::trim)
+            .anyMatch(d -> d.equalsIgnoreCase(dayName));
+
+    List<LocalDateTime> availableSlots = new ArrayList<>();
+
+    if (!availableDay) {
+        return availableSlots;
+    }
+
+    LocalTime[][] shifts = {
+        {doctor.getMorningStartTime(), doctor.getMorningEndTime()},
+        {doctor.getEveningStartTime(), doctor.getEveningEndTime()}
+    };
+
+    for (LocalTime[] shift : shifts) {
+
+        LocalTime start = shift[0];
+        LocalTime end = shift[1];
+
+        if (start == null || end == null) {
+            continue;
+        }
+
+        for (LocalTime time = start;
+             !time.plusMinutes(duration).isAfter(end);
+             time = time.plusMinutes(15)) {
+
+            LocalDateTime slot = LocalDateTime.of(date, time);
+
+            if (slot.isBefore(LocalDateTime.now())) {
+                continue;
+            }
+
+            try {
+                validateNoOverlap(
+                        doctorId, slot, duration, null);
+
+                availableSlots.add(slot);
+
+            } catch (RuntimeException e) {
+                // Skip slots that overlap existing appointments
+            }
+        }
+    }
+
+    return availableSlots;
+}
+
 }

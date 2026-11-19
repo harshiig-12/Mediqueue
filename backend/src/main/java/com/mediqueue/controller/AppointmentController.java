@@ -1,6 +1,7 @@
 
 package com.mediqueue.controller;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mediqueue.entity.Appointment;
@@ -29,14 +31,29 @@ public class AppointmentController {
     }
 
     @GetMapping
-    public List<Appointment> getAllAppointments() {
+    public List<Appointment> getAllAppointments() 
+    {
         return appointmentService.getAllAppointments();
     }
 
-    @GetMapping("/{id}")
-    public Appointment getAppointmentById(@PathVariable Long id) {
-        return appointmentService.getAppointmentById(id);
-    }
+   
+@GetMapping("/{id}")
+public Appointment getAppointmentById(@PathVariable Long id) {
+    return appointmentService.getAppointmentById(id);
+}
+
+@GetMapping("/available-slots")
+public List<LocalDateTime> getAvailableSlots(
+        @RequestParam Long doctorId,
+        @RequestParam String date,
+        @RequestParam String appointmentType) {
+
+    return appointmentService.getAvailableSlots(
+            doctorId,
+            LocalDate.parse(date),
+            appointmentType
+    );
+}
 
     @PostMapping("/{patientId}/{doctorId}")
     public Appointment createAppointment(
