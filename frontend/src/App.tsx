@@ -401,6 +401,58 @@ const handleDeleteDoctor = async (id: number) => {
     }
   }
 
+// Reschedule an appointment
+const handleReschedule = async (id: number) => {
+  try {
+    setError('')
+    setMessage('')
+
+    const appointment = appointments.find(
+      (item) => item.id === id
+    )
+
+    if (!appointment || !appointment.doctor?.id) {
+      throw new Error('Appointment or doctor details not found.')
+    }
+
+    const newStart = window.prompt(
+      'Enter new appointment date and time (YYYY-MM-DDTHH:mm):',
+      appointment.appointmentDateTime.slice(0, 16)
+    )
+
+    if (!newStart) return
+
+    const response = await fetch(
+      `${API}/appointments/${id}/reschedule`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          doctorId: appointment.doctor.id,
+          newStart: newStart
+        })
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(
+        errorData.message || 'Could not reschedule appointment.'
+      )
+    }
+
+    setMessage('Appointment rescheduled successfully!')
+    await loadData()
+  } catch (err) {
+    setError(
+      err instanceof Error ? err.message : 'Rescheduling failed.'
+    )
+  }
+}
+
+
   // Delete a patient
   const handlePatientDelete = async (patient: Patient) => {
     const confirmed = window.confirm(
@@ -584,11 +636,12 @@ page === 'Doctors' ? '⚕' : '▣'}
                   </div>
 
                   <AppointmentTable
-                    appointments={appointments.slice(0, 5)}
-                    formatDate={formatDate}
-                    onCancel={handleCancel}
-                    onComplete={handleComplete}
-                  />
+  appointments={appointments.slice(0, 5)}
+  formatDate={formatDate}
+  onCancel={handleCancel}
+  onComplete={handleComplete}
+  onReschedule={handleReschedule}
+/>
                 </section>
               </>
             )}
@@ -1074,6 +1127,7 @@ page === 'Doctors' ? '⚕' : '▣'}
                   formatDate={formatDate}
                   onCancel={handleCancel}
                   onComplete={handleComplete}
+                  onReschedule={handleReschedule}
                 />
 
                 <div className="booking-form">
@@ -1146,16 +1200,19 @@ page === 'Doctors' ? '⚕' : '▣'}
 
 // APPOINTMENT TABLE COMPONENT
 
+
 function AppointmentTable({
   appointments,
   formatDate,
   onCancel,
-  onComplete
+  onComplete,
+  onReschedule
 }: {
   appointments: Appointment[]
   formatDate: (date: string) => string
   onCancel: (id: number) => void
   onComplete: (id: number) => void
+  onReschedule: (id: number) => void
 }) {
   return (
     <div className="table-wrapper">
@@ -1204,6 +1261,13 @@ function AppointmentTable({
                   <>
                     <button
                       type="button"
+                      onClick={() => onReschedule(appointment.id)}
+                    >
+                      Reschedule
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => onComplete(appointment.id)}
                     >
                       Complete
@@ -1235,5 +1299,4 @@ function AppointmentTable({
     </div>
   )
 }
-
 export default App

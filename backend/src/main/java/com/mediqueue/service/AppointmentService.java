@@ -39,47 +39,72 @@ public class AppointmentService {
                 .orElseThrow(() -> new RuntimeException("Appointment not found"));
     }
 
-    public Appointment createAppointment(
-            Appointment appointment,
-            Long patientId,
-            Long doctorId) {
+    public Appointment createAppointment(Appointment appointment, Long patientId, Long doctorId) {
 
-        Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new RuntimeException("Patient not found"));
+        LocalDateTime appointmentDateTime = appointment.getAppointmentDateTime();
+
+        if (appointmentDateTime == null || appointmentDateTime.isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Cannot book an appointment in the past.");
+        }
 
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
 
-        LocalDateTime newStart = appointment.getAppointmentDateTime();
+        boolean conflict = appointmentRepository
+                .existsByDoctorIdAndAppointmentDateTimeAndStatus(
+                        doctorId, appointmentDateTime, "SCHEDULED");
 
-        if (newStart == null) {
-            throw new RuntimeException("Appointment date and time are required.");
+        if (conflict) {
+            throw new RuntimeException("This doctor already has an appointment at this time.");
         }
 
-        if (newStart.isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Cannot book an appointment in the past.");
-        }
-
-        LocalDateTime newEnd = newStart.plusMinutes(30);
-        LocalDateTime newStartMinusDuration = newStart.minusMinutes(30);
-
-        boolean alreadyBooked =
-                appointmentRepository.hasOverlappingAppointment(
-                        doctorId,
-                        newStartMinusDuration,
-                        newEnd
-                );
-
-        if (alreadyBooked) {
-            throw new RuntimeException(
-                    "This doctor already has an appointment during this time slot."
-            );
-        }
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new RuntimeException("Patient not found"));
 
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);
         appointment.setDoctorName(doctor.getName());
         appointment.setStatus("SCHEDULED");
+
+        return appointmentRepository.save(appointment);
+    }
+
+    public Appointment rescheduleAppointment(
+            Long appointmentId,
+            Long doctorId,
+            LocalDateTime newStart) {
+
+        Appointment appointment = getAppointmentById(appointmentId);
+
+        if (!"SCHEDULED".equals(appointment.getStatus())) {
+            throw new RuntimeException("Only scheduled appointments can be rescheduled.");
+        }
+
+        if (newStart == null || newStart.isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Cannot reschedule an appointment to the past.");
+        }
+
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+
+        boolean conflict = appointmentRepository
+                .existsByDoctorIdAndAppointmentDateTimeAndStatus(
+                        doctorId, newStart, "SCHEDULED");
+
+        if (conflict) {
+            boolean sameExistingSlot =
+                    appointment.getDoctor() != null
+                    && appointment.getDoctor().getId().equals(doctorId)
+                    && appointment.getAppointmentDateTime().equals(newStart);
+
+            if (!sameExistingSlot) {
+                throw new RuntimeException("This doctor already has an appointment at this time.");
+            }
+        }
+
+        appointment.setDoctor(doctor);
+        appointment.setDoctorName(doctor.getName());
+        appointment.setAppointmentDateTime(newStart);
 
         return appointmentRepository.save(appointment);
     }

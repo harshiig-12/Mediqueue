@@ -1,6 +1,7 @@
 
 package com.mediqueue.controller;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -37,13 +38,21 @@ public class AppointmentController {
         return appointmentService.getAppointmentById(id);
     }
 
-   @PostMapping("/{patientId}/{doctorId}")
-public Appointment createAppointment(
-        @RequestBody Appointment appointment,
-        @PathVariable Long patientId,
-        @PathVariable Long doctorId) {
-    return appointmentService.createAppointment(appointment, patientId, doctorId);
-}
+    @PostMapping("/{patientId}/{doctorId}")
+    public Appointment createAppointment(
+            @RequestBody Appointment appointment,
+            @PathVariable Long patientId,
+            @PathVariable Long doctorId) {
+        return appointmentService.createAppointment(appointment, patientId, doctorId);
+    }
+
+    @PutMapping("/{id}/reschedule")
+    public Appointment rescheduleAppointment(
+            @PathVariable Long id,
+            @RequestBody RescheduleRequest request) {
+        return appointmentService.rescheduleAppointment(
+                id, request.getDoctorId(), request.getNewStart());
+    }
 
     @PutMapping("/{id}/complete")
     public Appointment completeAppointment(@PathVariable Long id) {
@@ -59,5 +68,26 @@ public Appointment createAppointment(
     public String deleteAppointment(@PathVariable Long id) {
         appointmentService.deleteAppointment(id);
         return "Appointment deleted successfully";
+    }
+
+    public static class RescheduleRequest {
+        private Long doctorId;
+        private LocalDateTime newStart;
+
+        public Long getDoctorId() {
+            return doctorId;
+        }
+
+        public void setDoctorId(Long doctorId) {
+            this.doctorId = doctorId;
+        }
+
+        public LocalDateTime getNewStart() {
+            return newStart;
+        }
+
+        public void setNewStart(LocalDateTime newStart) {
+            this.newStart = newStart;
+        }
     }
 }
