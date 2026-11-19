@@ -28,20 +28,17 @@ public class Appointment {
 
     private String status = "SCHEDULED";
 
+    private String appointmentType;
+
+    private Integer estimatedDurationMinutes;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
+
     @ManyToOne(fetch = FetchType.LAZY)
-@JoinColumn(name = "doctor_id")
-private Doctor doctor;
-
-public Doctor getDoctor() {
-    return doctor;
-}
-
-public void setDoctor(Doctor doctor) {
-    this.doctor = doctor;
-}
+    @JoinColumn(name = "doctor_id")
+    private Doctor doctor;
 
     public Appointment() {
     }
@@ -88,5 +85,29 @@ public void setDoctor(Doctor doctor) {
 
     public void setPatient(Patient patient) {
         this.patient = patient;
+    }
+
+    public Doctor getDoctor() {
+        return doctor;
+    }
+
+    public void setDoctor(Doctor doctor) {
+        this.doctor = doctor;
+    }
+
+    public String getAppointmentType() {
+        return appointmentType;
+    }
+
+    public void setAppointmentType(String appointmentType) {
+        this.appointmentType = appointmentType;
+    }
+
+    public Integer getEstimatedDurationMinutes() {
+        return estimatedDurationMinutes;
+    }
+
+    public void setEstimatedDurationMinutes(Integer estimatedDurationMinutes) {
+        this.estimatedDurationMinutes = estimatedDurationMinutes;
     }
 }

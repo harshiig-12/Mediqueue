@@ -1,6 +1,8 @@
 
 package com.mediqueue.entity;
 
+import java.time.LocalTime;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -20,6 +22,14 @@ public class Doctor {
     private String phone;
     private String email;
     private double consultationFee;
+
+    private String availableDays;
+
+    private LocalTime morningStartTime;
+    private LocalTime morningEndTime;
+
+    private LocalTime eveningStartTime;
+    private LocalTime eveningEndTime;
 
     public Doctor() {
     }
@@ -57,6 +67,26 @@ public class Doctor {
         return consultationFee;
     }
 
+    public String getAvailableDays() {
+        return availableDays;
+    }
+
+    public LocalTime getMorningStartTime() {
+        return morningStartTime;
+    }
+
+    public LocalTime getMorningEndTime() {
+        return morningEndTime;
+    }
+
+    public LocalTime getEveningStartTime() {
+        return eveningStartTime;
+    }
+
+    public LocalTime getEveningEndTime() {
+        return eveningEndTime;
+    }
+
     public void setId(Long id) {
         this.id = id;
     }
@@ -79,5 +109,25 @@ public class Doctor {
 
     public void setConsultationFee(double consultationFee) {
         this.consultationFee = consultationFee;
+    }
+
+    public void setAvailableDays(String availableDays) {
+        this.availableDays = availableDays;
+    }
+
+    public void setMorningStartTime(LocalTime morningStartTime) {
+        this.morningStartTime = morningStartTime;
+    }
+
+    public void setMorningEndTime(LocalTime morningEndTime) {
+        this.morningEndTime = morningEndTime;
+    }
+
+    public void setEveningStartTime(LocalTime eveningStartTime) {
+        this.eveningStartTime = eveningStartTime;
+    }
+
+    public void setEveningEndTime(LocalTime eveningEndTime) {
+        this.eveningEndTime = eveningEndTime;
     }
 }

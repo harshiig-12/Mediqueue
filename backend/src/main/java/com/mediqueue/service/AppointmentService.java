@@ -1,8 +1,12 @@
 
 package com.mediqueue.service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.TextStyle;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 
@@ -20,6 +24,8 @@ public class AppointmentService {
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
 
+    private static final int DEFAULT_DURATION = 30;
+
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             PatientRepository patientRepository,
@@ -36,34 +42,160 @@ public class AppointmentService {
 
     public Appointment getAppointmentById(Long id) {
         return appointmentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Appointment not found"));
     }
 
-    public Appointment createAppointment(Appointment appointment, Long patientId, Long doctorId) {
+    private int calculateDuration(String appointmentType) {
 
-        LocalDateTime appointmentDateTime = appointment.getAppointmentDateTime();
-
-        if (appointmentDateTime == null || appointmentDateTime.isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Cannot book an appointment in the past.");
+        if (appointmentType == null || appointmentType.isBlank()) {
+            throw new RuntimeException("Please select an appointment type.");
         }
+
+        return switch (appointmentType.toUpperCase(Locale.ROOT)) {
+            case "NEW_PATIENT" -> 30;
+            case "FOLLOW_UP" -> 15;
+            case "GENERAL" -> 20;
+            case "COMPLEX" -> 45;
+            default -> throw new RuntimeException(
+                    "Invalid appointment type.");
+        };
+    }
+
+    private int getDuration(Appointment appointment) {
+        Integer duration = appointment.getEstimatedDurationMinutes();
+
+        return duration != null ? duration : DEFAULT_DURATION;
+    }
+
+    private void validateDoctorAvailability(
+            Doctor doctor,
+            LocalDateTime appointmentDateTime,
+            int duration) {
+
+        if (doctor.getAvailableDays() == null
+                || doctor.getAvailableDays().isBlank()) {
+            throw new RuntimeException(
+                    "Doctor availability has not been configured.");
+        }
+
+        DayOfWeek day = appointmentDateTime.getDayOfWeek();
+
+        String dayName = day.getDisplayName(
+                TextStyle.FULL, Locale.ENGLISH);
+
+        boolean availableDay = List.of(
+                doctor.getAvailableDays().split(","))
+                .stream()
+                .map(String::trim)
+                .anyMatch(d -> d.equalsIgnoreCase(dayName));
+
+        if (!availableDay) {
+            throw new RuntimeException(
+                    "Doctor is not available on " + dayName + ".");
+        }
+
+        LocalTime time = appointmentDateTime.toLocalTime();
+        LocalTime appointmentEnd = time.plusMinutes(duration);
+
+        boolean morningShift =
+                doctor.getMorningStartTime() != null
+                && doctor.getMorningEndTime() != null
+                && !time.isBefore(doctor.getMorningStartTime())
+                && !appointmentEnd.isAfter(doctor.getMorningEndTime());
+
+        boolean eveningShift =
+                doctor.getEveningStartTime() != null
+                && doctor.getEveningEndTime() != null
+                && !time.isBefore(doctor.getEveningStartTime())
+                && !appointmentEnd.isAfter(doctor.getEveningEndTime());
+
+        if (!morningShift && !eveningShift) {
+            throw new RuntimeException(
+                    "Appointment does not fit within the doctor's working shifts.");
+        }
+    }
+
+    private void validateNoOverlap(
+            Long doctorId,
+            LocalDateTime appointmentDateTime,
+            int duration,
+            Long excludedAppointmentId) {
+
+        LocalDateTime newEnd =
+                appointmentDateTime.plusMinutes(duration);
+
+        List<Appointment> existingAppointments =
+                appointmentRepository.findAll();
+
+        for (Appointment existing : existingAppointments) {
+
+            if (!"SCHEDULED".equals(existing.getStatus())) {
+                continue;
+            }
+
+            if (existing.getDoctor() == null
+                    || !existing.getDoctor().getId().equals(doctorId)) {
+                continue;
+            }
+
+            if (excludedAppointmentId != null
+                    && existing.getId().equals(excludedAppointmentId)) {
+                continue;
+            }
+
+            LocalDateTime existingStart =
+                    existing.getAppointmentDateTime();
+
+            LocalDateTime existingEnd =
+                    existingStart.plusMinutes(getDuration(existing));
+
+            boolean overlaps =
+                    appointmentDateTime.isBefore(existingEnd)
+                    && newEnd.isAfter(existingStart);
+
+            if (overlaps) {
+                throw new RuntimeException(
+                        "This doctor already has an overlapping appointment.");
+            }
+        }
+    }
+
+    public Appointment createAppointment(
+            Appointment appointment,
+            Long patientId,
+            Long doctorId) {
+
+        LocalDateTime appointmentDateTime =
+                appointment.getAppointmentDateTime();
+
+        if (appointmentDateTime == null
+                || appointmentDateTime.isBefore(LocalDateTime.now())) {
+            throw new RuntimeException(
+                    "Cannot book an appointment in the past.");
+        }
+
+        int duration = calculateDuration(
+                appointment.getAppointmentType());
 
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Doctor not found"));
 
-        boolean conflict = appointmentRepository
-                .existsByDoctorIdAndAppointmentDateTimeAndStatus(
-                        doctorId, appointmentDateTime, "SCHEDULED");
+        validateDoctorAvailability(
+                doctor, appointmentDateTime, duration);
 
-        if (conflict) {
-            throw new RuntimeException("This doctor already has an appointment at this time.");
-        }
+        validateNoOverlap(
+                doctorId, appointmentDateTime, duration, null);
 
         Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new RuntimeException("Patient not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Patient not found"));
 
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);
         appointment.setDoctorName(doctor.getName());
+        appointment.setEstimatedDurationMinutes(duration);
         appointment.setStatus("SCHEDULED");
 
         return appointmentRepository.save(appointment);
@@ -77,30 +209,26 @@ public class AppointmentService {
         Appointment appointment = getAppointmentById(appointmentId);
 
         if (!"SCHEDULED".equals(appointment.getStatus())) {
-            throw new RuntimeException("Only scheduled appointments can be rescheduled.");
+            throw new RuntimeException(
+                    "Only scheduled appointments can be rescheduled.");
         }
 
-        if (newStart == null || newStart.isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Cannot reschedule an appointment to the past.");
+        if (newStart == null
+                || newStart.isBefore(LocalDateTime.now())) {
+            throw new RuntimeException(
+                    "Cannot reschedule an appointment to the past.");
         }
+
+        int duration = getDuration(appointment);
 
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Doctor not found"));
 
-        boolean conflict = appointmentRepository
-                .existsByDoctorIdAndAppointmentDateTimeAndStatus(
-                        doctorId, newStart, "SCHEDULED");
+        validateDoctorAvailability(doctor, newStart, duration);
 
-        if (conflict) {
-            boolean sameExistingSlot =
-                    appointment.getDoctor() != null
-                    && appointment.getDoctor().getId().equals(doctorId)
-                    && appointment.getAppointmentDateTime().equals(newStart);
-
-            if (!sameExistingSlot) {
-                throw new RuntimeException("This doctor already has an appointment at this time.");
-            }
-        }
+        validateNoOverlap(
+                doctorId, newStart, duration, appointmentId);
 
         appointment.setDoctor(doctor);
         appointment.setDoctorName(doctor.getName());

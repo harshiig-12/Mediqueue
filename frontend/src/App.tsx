@@ -13,6 +13,7 @@ interface Patient {
   email: string
   dateOfBirth?: string
 }
+ 
 interface Doctor {
   id: number
   name: string
@@ -20,7 +21,13 @@ interface Doctor {
   phone: string
   email: string
   consultationFee: number
+  availableDays?: string
+  morningStartTime?: string
+  morningEndTime?: string
+  eveningStartTime?: string
+  eveningEndTime?: string
 }
+
 
 interface Appointment {
   id: number
@@ -72,11 +79,21 @@ const [editSpecialization, setEditSpecialization] = useState('')
 const [editDoctorPhone, setEditDoctorPhone] = useState('')
 const [editDoctorEmail, setEditDoctorEmail] = useState('')
 const [editConsultationFee, setEditConsultationFee] = useState('')
+const [editDoctorAvailableDays, setEditDoctorAvailableDays] = useState('')
+const [editDoctorMorningStart, setEditDoctorMorningStart] = useState('10:00')
+const [editDoctorMorningEnd, setEditDoctorMorningEnd] = useState('14:00')
+const [editDoctorEveningStart, setEditDoctorEveningStart] = useState('17:00')
+const [editDoctorEveningEnd, setEditDoctorEveningEnd] = useState('20:00')
   const [newDoctorName, setNewDoctorName] = useState('')
 const [newSpecialization, setNewSpecialization] = useState('')
 const [newDoctorPhone, setNewDoctorPhone] = useState('')
 const [newDoctorEmail, setNewDoctorEmail] = useState('')
 const [newConsultationFee, setNewConsultationFee] = useState('')
+const [newDoctorAvailableDays, setNewDoctorAvailableDays] = useState('')
+const [newDoctorMorningStart, setNewDoctorMorningStart] = useState('10:00')
+const [newDoctorMorningEnd, setNewDoctorMorningEnd] = useState('14:00')
+const [newDoctorEveningStart, setNewDoctorEveningStart] = useState('17:00')
+const [newDoctorEveningEnd, setNewDoctorEveningEnd] = useState('20:00')
 const [doctorMessage, setDoctorMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -99,6 +116,7 @@ const [doctorMessage, setDoctorMessage] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [newDateOfBirth, setNewDateOfBirth] = useState('')
   const [registrationMessage, setRegistrationMessage] = useState('')
+  const [appointmentType, setAppointmentType] = useState('GENERAL')
 
   useEffect(() => {
     let cancelled = false
@@ -188,7 +206,8 @@ const [doctorMessage, setDoctorMessage] = useState('')
     }
   }
 
-  const handleDoctorRegistration = async (e: FormEvent<HTMLFormElement>) => {
+ 
+const handleDoctorRegistration = async (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault()
   setDoctorMessage('')
 
@@ -201,26 +220,41 @@ const [doctorMessage, setDoctorMessage] = useState('')
         specialization: newSpecialization,
         phone: newDoctorPhone,
         email: newDoctorEmail,
-        consultationFee: Number(newConsultationFee)
+        consultationFee: Number(newConsultationFee),
+        availableDays: newDoctorAvailableDays,
+        morningStartTime: newDoctorMorningStart,
+        morningEndTime: newDoctorMorningEnd,
+        eveningStartTime: newDoctorEveningStart,
+        eveningEndTime: newDoctorEveningEnd
       })
     })
 
-    if (!response.ok) throw new Error('Could not register doctor.')
+    if (!response.ok) {
+      throw new Error('Could not register doctor.')
+    }
 
     setDoctorMessage('Doctor registered successfully!')
+
     setNewDoctorName('')
     setNewSpecialization('')
     setNewDoctorPhone('')
     setNewDoctorEmail('')
     setNewConsultationFee('')
+    setNewDoctorAvailableDays('')
+    setNewDoctorMorningStart('10:00')
+    setNewDoctorMorningEnd('14:00')
+    setNewDoctorEveningStart('17:00')
+    setNewDoctorEveningEnd('20:00')
 
     await loadData()
+
   } catch (err) {
     setDoctorMessage(
       err instanceof Error ? err.message : 'Registration failed.'
     )
   }
 }
+
 
 const handleEditDoctor = (doctor: Doctor) => {
   setEditingDoctorId(doctor.id)
@@ -229,6 +263,12 @@ const handleEditDoctor = (doctor: Doctor) => {
   setEditDoctorPhone(doctor.phone)
   setEditDoctorEmail(doctor.email)
   setEditConsultationFee(String(doctor.consultationFee))
+
+  setEditDoctorAvailableDays(doctor.availableDays || '')
+  setEditDoctorMorningStart(doctor.morningStartTime || '10:00')
+  setEditDoctorMorningEnd(doctor.morningEndTime || '14:00')
+  setEditDoctorEveningStart(doctor.eveningStartTime || '17:00')
+  setEditDoctorEveningEnd(doctor.eveningEndTime || '20:00')
 }
 
 const handleUpdateDoctor = async (e: FormEvent<HTMLFormElement>) => {
@@ -240,10 +280,15 @@ const handleUpdateDoctor = async (e: FormEvent<HTMLFormElement>) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: editDoctorName,
-        specialization: editSpecialization,
-        phone: editDoctorPhone,
-        email: editDoctorEmail,
-        consultationFee: Number(editConsultationFee)
+specialization: editSpecialization,
+phone: editDoctorPhone,
+email: editDoctorEmail,
+consultationFee: Number(editConsultationFee),
+availableDays: editDoctorAvailableDays,
+morningStartTime: editDoctorMorningStart,
+morningEndTime: editDoctorMorningEnd,
+eveningStartTime: editDoctorEveningStart,
+eveningEndTime: editDoctorEveningEnd
       })
     })
 
@@ -303,45 +348,51 @@ const handleDeleteDoctor = async (id: number) => {
   }
 
   // Book an appointment
-  const handleBooking = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setMessage('')
+  
+const handleBooking = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  setMessage('')
 
-    try {
-      const response = await fetch(
-        `${API}/appointments/${patientId}/${selectedDoctorId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-  appointmentDateTime,
-  reason,
-  status: 'SCHEDULED'
-})
-        }
-      )
+  try {
+    const response = await fetch(
+      `${API}/appointments/${patientId}/${selectedDoctorId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          appointmentDateTime,
+          reason,
+          appointmentType,
+          status: 'SCHEDULED'
+        })
+      }
+    )
 
-     if (!response.ok) {
-    const errorData = await response.json()
-    throw new Error(errorData.message || 'Could not book appointment.')
-}
-
-      setMessage('Appointment booked successfully!')
-
-      
-      setPatientId('')
-      setAppointmentDateTime('')
-      setReason('')
-
-      await loadData()
-    } catch (err) {
-      setMessage(
-        err instanceof Error ? err.message : 'Booking failed.'
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(
+        errorData.message || 'Could not book appointment.'
       )
     }
+
+    setMessage('Appointment booked successfully!')
+
+    setPatientId('')
+    setAppointmentDateTime('')
+    setReason('')
+    setAppointmentType('GENERAL')
+
+    await loadData()
+
+  } catch (err) {
+    setMessage(
+      err instanceof Error ? err.message : 'Booking failed.'
+    )
   }
+}
+
 
   // Cancel an appointment without deleting it
   const handleCancel = async (id: number) => {
@@ -984,6 +1035,46 @@ page === 'Doctors' ? '⚕' : '▣'}
       required
     />
 
+<label>Available Days</label>
+<input
+  value={editDoctorAvailableDays}
+  onChange={(e) => setEditDoctorAvailableDays(e.target.value)}
+  placeholder="e.g. Monday, Tuesday, Wednesday"
+  required
+/>
+
+<label>Morning Shift Start</label>
+<input
+  type="time"
+  value={editDoctorMorningStart}
+  onChange={(e) => setEditDoctorMorningStart(e.target.value)}
+  required
+/>
+
+<label>Morning Shift End</label>
+<input
+  type="time"
+  value={editDoctorMorningEnd}
+  onChange={(e) => setEditDoctorMorningEnd(e.target.value)}
+  required
+/>
+
+<label>Evening Shift Start</label>
+<input
+  type="time"
+  value={editDoctorEveningStart}
+  onChange={(e) => setEditDoctorEveningStart(e.target.value)}
+  required
+/>
+
+<label>Evening Shift End</label>
+<input
+  type="time"
+  value={editDoctorEveningEnd}
+  onChange={(e) => setEditDoctorEveningEnd(e.target.value)}
+  required
+/>
+
     <button type="submit" className="submit-btn">
       Save Changes
     </button>
@@ -1052,6 +1143,48 @@ page === 'Doctors' ? '⚕' : '▣'}
       placeholder="Enter fee"
       required
     />
+
+<label>Available Days</label>
+<input
+  value={newDoctorAvailableDays}
+  onChange={(e) => setNewDoctorAvailableDays(e.target.value)}
+  placeholder="e.g. Monday, Tuesday, Wednesday"
+  required
+/>
+
+
+<label>Morning Shift Start</label>
+<input
+  type="time"
+  value={newDoctorMorningStart}
+  onChange={(e) => setNewDoctorMorningStart(e.target.value)}
+  required
+/>
+
+<label>Morning Shift End</label>
+<input
+  type="time"
+  value={newDoctorMorningEnd}
+  onChange={(e) => setNewDoctorMorningEnd(e.target.value)}
+  required
+/>
+
+<label>Evening Shift Start</label>
+<input
+  type="time"
+  value={newDoctorEveningStart}
+  onChange={(e) => setNewDoctorEveningStart(e.target.value)}
+  required
+/>
+
+<label>Evening Shift End</label>
+<input
+  type="time"
+  value={newDoctorEveningEnd}
+  onChange={(e) => setNewDoctorEveningEnd(e.target.value)}
+  required
+/>
+
 
     <button className="submit-btn" type="submit">
       + Register Doctor
@@ -1175,6 +1308,26 @@ page === 'Doctors' ? '⚕' : '▣'}
                       }
                       required
                     />
+
+<label>Appointment Type</label>
+<select
+  value={appointmentType}
+  onChange={(e) => setAppointmentType(e.target.value)}
+  required
+>
+  <option value="NEW_PATIENT">New Patient (30 min)</option>
+  <option value="FOLLOW_UP">Follow-up (15 min)</option>
+  <option value="GENERAL">General Consultation (20 min)</option>
+  <option value="COMPLEX">Complex Consultation (45 min)</option>
+</select>
+
+<p>
+  Estimated Duration: {
+    appointmentType === 'NEW_PATIENT' ? 30 :
+    appointmentType === 'FOLLOW_UP' ? 15 :
+    appointmentType === 'COMPLEX' ? 45 : 20
+  } minutes
+</p>
 
                     <label>Reason for Visit</label>
                     <input

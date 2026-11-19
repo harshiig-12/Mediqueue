@@ -39,6 +39,14 @@ public class DoctorService {
         doctor.setEmail(updatedDoctor.getEmail());
         doctor.setConsultationFee(updatedDoctor.getConsultationFee());
 
+        doctor.setAvailableDays(updatedDoctor.getAvailableDays());
+
+        doctor.setMorningStartTime(updatedDoctor.getMorningStartTime());
+        doctor.setMorningEndTime(updatedDoctor.getMorningEndTime());
+
+        doctor.setEveningStartTime(updatedDoctor.getEveningStartTime());
+        doctor.setEveningEndTime(updatedDoctor.getEveningEndTime());
+
         return doctorRepository.save(doctor);
     }
 
