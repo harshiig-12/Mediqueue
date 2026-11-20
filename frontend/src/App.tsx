@@ -37,6 +37,8 @@ interface Appointment {
   reason: string
   status: string
   patient: Patient
+  appointmentType?: string
+estimatedDurationMinutes?: number | null
 }
 
 
@@ -1461,6 +1463,8 @@ function AppointmentTable({
             <th>Patient</th>
             <th>Doctor</th>
             <th>Date & Time</th>
+            <th>Appointment Type</th>
+<th>Duration</th>
             <th>Reason</th>
             <th>Status</th>
             <th>Action</th>
@@ -1484,6 +1488,17 @@ function AppointmentTable({
               <td>
                 {formatDate(appointment.appointmentDateTime)}
               </td>
+              <td>
+  {appointment.appointmentType
+    ? appointment.appointmentType.replaceAll('_', ' ')
+    : '-'}
+</td>
+
+<td>
+  {appointment.estimatedDurationMinutes != null
+    ? `${appointment.estimatedDurationMinutes} min`
+    : '-'}
+</td>
 
               <td>{appointment.reason}</td>
 
