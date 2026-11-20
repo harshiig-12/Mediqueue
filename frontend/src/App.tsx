@@ -111,6 +111,20 @@ const [availableSlots, setAvailableSlots] = useState<string[]>([])
   const [message, setMessage] = useState('')
 
   const [activePage, setActivePage] = useState('Dashboard')
+  const [token, setToken] = useState<string | null>(
+  localStorage.getItem('token')
+)
+const [userName, setUserName] = useState(
+  localStorage.getItem('userName') || ''
+)
+const [userRole, setUserRole] = useState(
+  localStorage.getItem('userRole') || ''
+)
+const [authPage, setAuthPage] = useState<'login' | 'register'>('login')
+const [authEmail, setAuthEmail] = useState('')
+const [authPassword, setAuthPassword] = useState('')
+const [authName, setAuthName] = useState('')
+const [authMessage, setAuthMessage] = useState('')
 
 
 
@@ -615,6 +629,159 @@ const handleReschedule = async (id: number) => {
     (appointment) => appointment.status === 'CANCELLED'
   ).length
 
+  
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setAuthMessage('');
+
+  try {
+    const response = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: authEmail,
+        password: authPassword
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Invalid email or password');
+    }
+
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('userName', data.name);
+    localStorage.setItem('userRole', data.role);
+
+    setToken(data.token);
+    setUserName(data.name);
+    setUserRole(data.role);
+    setAuthPassword('');
+  } catch (error) {
+    setAuthMessage(
+      error instanceof Error ? error.message : 'Login failed'
+    );
+  }
+};
+
+const handleRegister = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setAuthMessage('');
+
+  try {
+    const response = await fetch(`${API}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: authName,
+        email: authEmail,
+        password: authPassword
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Registration failed');
+    }
+
+    setAuthMessage('Registration successful! Please log in.');
+    setAuthPage('login');
+    setAuthName('');
+    setAuthPassword('');
+  } catch (error) {
+    setAuthMessage(
+      error instanceof Error ? error.message : 'Registration failed'
+    );
+  }
+};
+
+const handleLogout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('userName');
+  localStorage.removeItem('userRole');
+
+  setToken(null);
+  setUserName('');
+  setUserRole('');
+  setAuthEmail('');
+  setAuthPassword('');
+};
+
+
+if (!token) {
+  return (
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <h1>✚ MediQueue</h1>
+          <p>Hospital Management System</p>
+        </div>
+
+        <h2>
+          {authPage === 'login' ? 'Welcome Back' : 'Create Account'}
+        </h2>
+        <p>
+          {authPage === 'login'
+            ? 'Sign in to continue to your dashboard'
+            : 'Register to get started with MediQueue'}
+        </p>
+
+        <form onSubmit={authPage === 'login' ? handleLogin : handleRegister}>
+          {authPage === 'register' && (
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={authName}
+              onChange={(e) => setAuthName(e.target.value)}
+              required
+            />
+          )}
+
+          <input
+            type="email"
+            placeholder="Email Address"
+            value={authEmail}
+            onChange={(e) => setAuthEmail(e.target.value)}
+            required
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={authPassword}
+            onChange={(e) => setAuthPassword(e.target.value)}
+            required
+          />
+
+          {authMessage && <p>{authMessage}</p>}
+
+          <button type="submit">
+            {authPage === 'login' ? 'Sign In' : 'Create Account'}
+          </button>
+        </form>
+
+        <p>
+          {authPage === 'login'
+            ? "Don't have an account?"
+            : 'Already have an account?'}
+          {' '}
+          <button
+            type="button"
+            onClick={() => {
+              setAuthPage(authPage === 'login' ? 'register' : 'login');
+              setAuthMessage('');
+            }}
+          >
+            {authPage === 'login' ? 'Register' : 'Sign In'}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
@@ -655,12 +822,15 @@ page === 'Doctors' ? '⚕' : '▣'}
         ))}
 
         <div className="sidebar-bottom">
-          <div className="admin-avatar">A</div>
-          <div>
-            <strong>Administrator</strong>
-            <span>System Manager</span>
-          </div>
-        </div>
+  <div className="admin-avatar">
+    {userName.charAt(0).toUpperCase()}
+  </div>
+  <div>
+    <strong>{userName}</strong>
+    <span>{userRole}</span>
+  </div>
+  <button onClick={handleLogout}>Logout</button>
+</div>
       </aside>
 
       <main className="main-content">
