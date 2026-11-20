@@ -4,18 +4,25 @@ package com.mediqueue.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.mediqueue.entity.Doctor;
+import com.mediqueue.repository.AppointmentRepository;
 import com.mediqueue.repository.DoctorRepository;
 
 @Service
 public class DoctorService {
 
     private final DoctorRepository doctorRepository;
+private final AppointmentRepository appointmentRepository;
 
-    public DoctorService(DoctorRepository doctorRepository) {
-        this.doctorRepository = doctorRepository;
-    }
+    public DoctorService(
+        DoctorRepository doctorRepository,
+        AppointmentRepository appointmentRepository) {
+
+    this.doctorRepository = doctorRepository;
+    this.appointmentRepository = appointmentRepository;
+}
 
     public List<Doctor> getAllDoctors() {
         return doctorRepository.findAll();
@@ -50,8 +57,12 @@ public class DoctorService {
         return doctorRepository.save(doctor);
     }
 
-    public void deleteDoctor(Long id) {
-        Doctor doctor = getDoctorById(id);
-        doctorRepository.delete(doctor);
-    }
+   @Transactional 
+public void deleteDoctor(Long id) {
+    getDoctorById(id);
+
+    appointmentRepository.unlinkDoctorFromAppointments(id);
+
+    doctorRepository.deleteById(id);
+}
 }

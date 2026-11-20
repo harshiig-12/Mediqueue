@@ -355,7 +355,22 @@ const handleDeleteDoctor = async (id: number) => {
       method: 'DELETE'
     })
 
-    if (!response.ok) throw new Error('Could not delete doctor.')
+    
+if (!response.ok) {
+  const errorText = await response.text()
+
+  let errorMessage = errorText || `Delete failed (HTTP ${response.status})`
+
+  try {
+    const errorData = JSON.parse(errorText)
+    errorMessage = errorData.message || errorData.error || errorMessage
+  } catch {
+    // Keep the original error text
+  }
+
+  throw new Error(errorMessage)
+}
+
 
     await loadData()
   } catch (err) {
