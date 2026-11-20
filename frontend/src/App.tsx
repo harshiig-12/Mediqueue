@@ -42,12 +42,18 @@ estimatedDurationMinutes?: number | null
 }
 
 
-async function fetchDashboardData() {
+async function fetchDashboardData(token: string) {
   const [patientResponse, appointmentResponse, doctorResponse] =
     await Promise.all([
-      fetch(`${API}/patients`),
-      fetch(`${API}/appointments`),
-      fetch(`${API}/doctors`)
+      fetch(`${API}/patients`, {
+  headers: { Authorization: `Bearer ${token}` }
+}),
+fetch(`${API}/appointments`, {
+  headers: { Authorization: `Bearer ${token}` }
+}),
+fetch(`${API}/doctors`, {
+  headers: { Authorization: `Bearer ${token}` }
+})
     ])
 
   if (
@@ -141,7 +147,8 @@ const [authMessage, setAuthMessage] = useState('')
   const [appointmentType, setAppointmentType] = useState('GENERAL')
 
 useEffect(() => {
-  if (!selectedDoctorId || !selectedDate || !appointmentType) {
+  if (!token) return;
+  if (!token || !selectedDoctorId || !selectedDate || !appointmentType) {
     return
   }
 
@@ -153,7 +160,11 @@ useEffect(() => {
     appointmentType
   })
 
-  fetch(`${API}/appointments/available-slots?${params.toString()}`)
+  fetch(`${API}/appointments/available-slots?${params.toString()}`, {
+  headers: {
+    Authorization: `Bearer ${token}`
+  }
+})
     .then(async (response) => {
       if (!response.ok) {
         throw new Error('Could not load available slots.')
@@ -181,9 +192,10 @@ useEffect(() => {
 
 
   useEffect(() => {
+    if (!token) return;
     let cancelled = false
 
-    fetchDashboardData()
+    fetchDashboardData(token!)
       .then((data) => {
         if (!cancelled) {
           setPatients(data.patients)
@@ -207,12 +219,12 @@ useEffect(() => {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [token])
 
   const loadData = async () => {
     try {
       setError('')
-      const data = await fetchDashboardData()
+      const data = await fetchDashboardData(token!)
 
       setPatients(data.patients)
       setAppointments(data.appointments)
@@ -235,8 +247,9 @@ useEffect(() => {
       const response = await fetch(`${API}/patients`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
-        },
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token}`
+},
         body: JSON.stringify({
           name: newName,
           age: Number(newAge),
@@ -276,7 +289,10 @@ const handleDoctorRegistration = async (e: FormEvent<HTMLFormElement>) => {
   try {
     const response = await fetch(`${API}/doctors`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token}`
+},
       body: JSON.stringify({
         name: newDoctorName,
         specialization: newSpecialization,
@@ -339,7 +355,10 @@ const handleUpdateDoctor = async (e: FormEvent<HTMLFormElement>) => {
   try {
     const response = await fetch(`${API}/doctors/${editingDoctorId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token}`
+},
       body: JSON.stringify({
         name: editDoctorName,
 specialization: editSpecialization,
@@ -404,8 +423,9 @@ if (!response.ok) {
         {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
-          },
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token}`
+},
           body: JSON.stringify(editingPatient)
         }
       )
@@ -436,7 +456,8 @@ const handleBooking = async (e: FormEvent<HTMLFormElement>) => {
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           appointmentDateTime,
@@ -486,8 +507,11 @@ const handleBooking = async (e: FormEvent<HTMLFormElement>) => {
       const response = await fetch(
         `${API}/appointments/${id}/cancel`,
         {
-          method: 'PUT'
-        }
+  method: 'PUT',
+  headers: {
+    Authorization: `Bearer ${token}`
+  }
+}
       )
 
       if (!response.ok) {
@@ -512,7 +536,10 @@ const handleBooking = async (e: FormEvent<HTMLFormElement>) => {
       const response = await fetch(
         `${API}/appointments/${id}/complete`,
         {
-          method: 'PUT'
+          method: 'PUT',
+          headers: {
+    Authorization: `Bearer ${token}`
+  }
         }
       )
 
@@ -555,7 +582,8 @@ const handleReschedule = async (id: number) => {
       {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           doctorId: appointment.doctor.id,
@@ -594,7 +622,10 @@ const handleReschedule = async (id: number) => {
       const response = await fetch(
         `${API}/patients/${patient.id}`,
         {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: {
+    Authorization: `Bearer ${token}`
+  }
         }
       )
 
