@@ -53,25 +53,50 @@ interface Appointment {
 estimatedDurationMinutes?: number | null
 }
 
+interface Billing {
+  id: number
+  billNumber: string
+  billDate: string
+  patient: Patient
+  appointment?: Appointment | null
+  doctorName: string
+  consultationFee: number
+  additionalCharges: number
+  discount: number
+  totalAmount: number
+  amountPaid: number
+  paymentStatus: string
+}
+
+
+
 
 async function fetchDashboardData(token: string) {
-  const [patientResponse, appointmentResponse, doctorResponse] =
-    await Promise.all([
-      fetch(`${API}/patients`, {
-  headers: { Authorization: `Bearer ${token}` }
-}),
-fetch(`${API}/appointments`, {
-  headers: { Authorization: `Bearer ${token}` }
-}),
-fetch(`${API}/doctors`, {
-  headers: { Authorization: `Bearer ${token}` }
-})
-    ])
+  const [
+    patientResponse,
+    appointmentResponse,
+    doctorResponse,
+    billingResponse
+  ] = await Promise.all([
+    fetch(`${API}/patients`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }),
+    fetch(`${API}/appointments`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }),
+    fetch(`${API}/doctors`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }),
+    fetch(`${API}/billing`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+  ])
 
   if (
     !patientResponse.ok ||
     !appointmentResponse.ok ||
-    !doctorResponse.ok
+    !doctorResponse.ok ||
+    !billingResponse.ok
   ) {
     throw new Error('Unable to load data from the server.')
   }
@@ -79,9 +104,11 @@ fetch(`${API}/doctors`, {
   const patients: Patient[] = await patientResponse.json()
   const appointments: Appointment[] = await appointmentResponse.json()
   const doctors: Doctor[] = await doctorResponse.json()
+  const bills: Billing[] = await billingResponse.json()
 
-  return { patients, appointments, doctors }
+  return { patients, appointments, doctors, bills }
 }
+
 
  
 
@@ -89,6 +116,17 @@ function App() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [bills, setBills] = useState<Billing[]>([])
+
+const [billingPatientId, setBillingPatientId] = useState('')
+const [billingAppointmentId, setBillingAppointmentId] = useState('')
+const [additionalCharges, setAdditionalCharges] = useState('0')
+const [discount, setDiscount] = useState('0')
+const [billingMessage, setBillingMessage] = useState('')
+const [billingLoading, setBillingLoading] = useState(false)
+const [paymentAmounts, setPaymentAmounts] = useState<Record<number, string>>({})
+const [paymentMessage, setPaymentMessage] = useState('')
+
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState('All')
   const [selectedScheduleDate, setSelectedScheduleDate] = useState(
   new Date().toISOString().split('T')[0]
@@ -213,6 +251,7 @@ useEffect(() => {
           setPatients(data.patients)
           setAppointments(data.appointments)
           setDoctors(data.doctors)
+          setBills(data.bills)
         }
       })
       .catch((err: unknown) => {
@@ -761,6 +800,127 @@ const handleLogin = async (e: React.FormEvent) => {
   }
 };
 
+const handleGenerateBill = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setBillingMessage('')
+
+  if (!billingPatientId) {
+    setBillingMessage('Please select a patient.')
+    return
+  }
+
+  const extra = Number(additionalCharges)
+  const discountValue = Number(discount)
+
+  if (
+    !Number.isFinite(extra) ||
+    !Number.isFinite(discountValue) ||
+    extra < 0 ||
+    discountValue < 0
+  ) {
+    setBillingMessage('Charges and discount must be valid non-negative amounts.')
+    return
+  }
+
+  setBillingLoading(true)
+
+  try {
+    const response = await fetch(`${API}/billing`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        patientId: Number(billingPatientId),
+        appointmentId: billingAppointmentId
+          ? Number(billingAppointmentId)
+          : null,
+        additionalCharges: extra,
+        discount: discountValue
+      })
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to generate bill.')
+    }
+
+    setBillingMessage('Bill generated successfully!')
+    setBillingPatientId('')
+    setBillingAppointmentId('')
+    setAdditionalCharges('0')
+    setDiscount('0')
+
+    const updatedBills = await fetch(`${API}/billing`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    if (!updatedBills.ok) {
+      throw new Error('Bill created, but the billing list could not refresh.')
+    }
+
+    setBills(await updatedBills.json())
+  } catch (error) {
+    setBillingMessage(
+      error instanceof Error ? error.message : 'Bill generation failed.'
+    )
+  } finally {
+    setBillingLoading(false)
+  }
+}
+
+const handleRecordPayment = async (billId: number) => {
+  setPaymentMessage('')
+
+  const amount = Number(paymentAmounts[billId])
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    setPaymentMessage('Enter a valid payment amount.')
+    return
+  }
+
+  try {
+    const response = await fetch(`${API}/billing/${billId}/payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ amount })
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Payment failed.')
+    }
+
+    setPaymentMessage('Payment recorded successfully!')
+
+    setPaymentAmounts((previous) => ({
+      ...previous,
+      [billId]: ''
+    }))
+
+    const updatedBills = await fetch(`${API}/billing`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    if (!updatedBills.ok) {
+      throw new Error('Payment recorded, but bills could not refresh.')
+    }
+
+    setBills(await updatedBills.json())
+  } catch (error) {
+    setPaymentMessage(
+      error instanceof Error ? error.message : 'Payment failed.'
+    )
+  }
+}
+
+
 const handleRegister = async (e: React.FormEvent) => {
   e.preventDefault();
   setAuthMessage('');
@@ -792,6 +952,105 @@ const handleRegister = async (e: React.FormEvent) => {
     );
   }
 };
+const handlePrintInvoice = (bill: Billing) => {
+  const printWindow = window.open('', '_blank', 'width=800,height=900')
+
+  if (!printWindow) {
+    alert('Please allow pop-ups to print the invoice.')
+    return
+  }
+
+  const escapeHtml = (value: string) =>
+    value.replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[char]!)
+
+  const balance = Number(bill.totalAmount) - Number(bill.amountPaid)
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Invoice ${escapeHtml(bill.billNumber)}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            color: #222;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 20px;
+          }
+          h1 { color: #2563eb; margin-bottom: 5px; }
+          .details { margin-top: 30px; line-height: 1.8; }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+          }
+          th, td {
+            padding: 14px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+          }
+          .total { font-weight: bold; font-size: 18px; }
+          .footer {
+            margin-top: 50px;
+            text-align: center;
+            color: #666;
+          }
+          @media print {
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>MediQueue</h1>
+            <p>Patient Billing Invoice</p>
+          </div>
+          <div>
+            <strong>Invoice:</strong> ${escapeHtml(bill.billNumber)}<br />
+            <strong>Date:</strong> ${escapeHtml(formatDate(bill.billDate))}
+          </div>
+        </div>
+
+        <div class="details">
+          <strong>Patient:</strong> ${escapeHtml(bill.patient?.name || 'N/A')}<br />
+          <strong>Doctor:</strong> ${escapeHtml(bill.doctorName || 'N/A')}<br />
+          <strong>Payment Status:</strong> ${escapeHtml(bill.paymentStatus)}
+        </div>
+
+        <table>
+          <tr><th>Description</th><th>Amount</th></tr>
+          <tr><td>Consultation Fee</td><td>₹${Number(bill.consultationFee).toFixed(2)}</td></tr>
+          <tr><td>Additional Charges</td><td>₹${Number(bill.additionalCharges).toFixed(2)}</td></tr>
+          <tr><td>Discount</td><td>- ₹${Number(bill.discount).toFixed(2)}</td></tr>
+          <tr class="total"><td>Total Amount</td><td>₹${Number(bill.totalAmount).toFixed(2)}</td></tr>
+          <tr><td>Amount Paid</td><td>₹${Number(bill.amountPaid).toFixed(2)}</td></tr>
+          <tr class="total"><td>Balance Due</td><td>₹${balance.toFixed(2)}</td></tr>
+        </table>
+
+        <div class="footer">
+          <p>Thank you for choosing MediQueue!</p>
+        </div>
+        <script>
+          window.onload = () => window.print()
+        </script>
+      </body>
+    </html>
+  `)
+
+  printWindow.document.close()
+}
 
 const handleLogout = () => {
   localStorage.removeItem('token');
@@ -896,7 +1155,8 @@ if (!token) {
           'Patients',
           'Register Patient',
            ...(userRole === 'ADMIN' ? ['Doctors'] : []),
-          'Appointments'
+          'Appointments',
+          'Billing'
         ].map((page) => (
           <button
             key={page}
@@ -1119,7 +1379,9 @@ page === 'Doctors' ? '⚕' : '▣'}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="search-input"
                 />
-
+{paymentMessage && (
+  <p className="form-message">{paymentMessage}</p>
+)}
                 <div className="patient-grid">
                   {patients
                     .filter((patient) =>
@@ -1772,6 +2034,162 @@ page === 'Doctors' ? '⚕' : '▣'}
                 </div>
               </section>
             )}
+
+{/* BILLING */}
+{activePage === 'Billing' && (
+  <section className="content-card">
+    <div className="section-heading">
+      <div>
+        <h2>Billing & Payments</h2>
+        <p>Manage patient invoices and payments</p>
+      </div>
+      <span className="count-label">
+        {bills.length} Bills
+      </span>
+    </div>
+
+{userRole === 'ADMIN' && (
+  <div className="booking-form">
+    <h2>Generate New Bill</h2>
+    <p>Create an invoice for a registered patient.</p>
+
+    <form onSubmit={handleGenerateBill}>
+      <label>Patient</label>
+      <select
+        value={billingPatientId}
+        onChange={(e) => {
+          setBillingPatientId(e.target.value)
+          setBillingAppointmentId('')
+        }}
+        required
+      >
+        <option value="">Select a patient</option>
+        {patients.map((patient) => (
+          <option key={patient.id} value={patient.id}>
+            {patient.name} (ID: {patient.id})
+          </option>
+        ))}
+      </select>
+
+      <label>Appointment (Optional)</label>
+      <select
+        value={billingAppointmentId}
+        onChange={(e) => setBillingAppointmentId(e.target.value)}
+      >
+        <option value="">No appointment selected</option>
+        {appointments
+          .filter(
+            (appointment) =>
+              String(appointment.patient?.id) === billingPatientId &&
+              appointment.doctor
+          )
+          .map((appointment) => (
+            <option key={appointment.id} value={appointment.id}>
+              {appointment.doctorName} - {formatDate(appointment.appointmentDateTime)}
+            </option>
+          ))}
+      </select>
+
+      <label>Additional Charges (₹)</label>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        value={additionalCharges}
+        onChange={(e) => setAdditionalCharges(e.target.value)}
+      />
+
+      <label>Discount (₹)</label>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        value={discount}
+        onChange={(e) => setDiscount(e.target.value)}
+      />
+
+      <button
+        className="submit-btn"
+        type="submit"
+        disabled={billingLoading}
+      >
+        {billingLoading ? 'Generating...' : '+ Generate Bill'}
+      </button>
+    </form>
+
+    {billingMessage && (
+      <p className="form-message">{billingMessage}</p>
+    )}
+  </div>
+)}
+
+
+    <div className="patient-grid">
+      {bills.map((bill) => (
+        <div className="patient-card" key={bill.id}>
+          <h3>{bill.billNumber}</h3>
+
+          <p>Patient: {bill.patient?.name}</p>
+          <p>Doctor: {bill.doctorName}</p>
+          <p>Date: {formatDate(bill.billDate)}</p>
+
+          <p>
+            Total: ₹{Number(bill.totalAmount).toFixed(2)}
+          </p>
+
+          <p>
+            Paid: ₹{Number(bill.amountPaid).toFixed(2)}
+          </p>
+
+          <p>
+            Status: {bill.paymentStatus}
+          </p>
+
+{userRole === 'ADMIN' && bill.paymentStatus !== 'PAID' && (
+  <div className="booking-form">
+    <label>Record Payment (₹)</label>
+
+    <input
+      type="number"
+      min="0.01"
+      step="0.01"
+      placeholder="Enter payment amount"
+      value={paymentAmounts[bill.id] || ''}
+      onChange={(e) =>
+        setPaymentAmounts((previous) => ({
+          ...previous,
+          [bill.id]: e.target.value
+        }))
+      }
+    />
+
+    <button
+      className="submit-btn"
+      type="button"
+      onClick={() => handleRecordPayment(bill.id)}
+    >
+      Record Payment
+    </button>
+  </div>
+)}
+<button
+  className="submit-btn"
+  type="button"
+  onClick={() => handlePrintInvoice(bill)}
+>
+  🖨 Print Invoice
+</button>
+
+        </div>
+      ))}
+
+      {bills.length === 0 && (
+        <p>No bills generated yet.</p>
+      )}
+    </div>
+  </section>
+)}
+
           </>
         )}
       </main>
