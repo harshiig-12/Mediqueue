@@ -13,7 +13,10 @@ import com.mediqueue.entity.Appointment;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
-    void deleteByPatientId(Long patientId);
+    @Transactional
+@Modifying
+@Query("DELETE FROM Appointment a WHERE a.patient.id = :patientId")
+void deleteByPatientId(@Param("patientId") Long patientId);
 
     boolean existsByDoctorIdAndAppointmentDateTimeAndStatus(
             Long doctorId,

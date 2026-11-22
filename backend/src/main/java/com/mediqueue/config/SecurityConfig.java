@@ -20,6 +20,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -47,10 +49,26 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
     .requestMatchers("/api/auth/**").permitAll()
+
+    // Patient permissions
+    .requestMatchers(HttpMethod.DELETE, "/api/patients/**")
+        .hasRole("ADMIN")
+
+    // Doctor permissions
+    .requestMatchers(HttpMethod.POST, "/api/doctors/**")
+        .hasRole("ADMIN")
+    .requestMatchers(HttpMethod.PUT, "/api/doctors/**")
+        .hasRole("ADMIN")
+    .requestMatchers(HttpMethod.DELETE, "/api/doctors/**")
+        .hasRole("ADMIN")
+
+    // All remaining APIs require login
     .anyRequest().authenticated()
 )
 .oauth2ResourceServer(oauth2 ->
-    oauth2.jwt(Customizer.withDefaults())
+    oauth2.jwt(jwt ->
+        jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())
+    )
 );
 
         return http.build();
@@ -109,6 +127,23 @@ public JwtEncoder jwtEncoder(KeyPair keyPair) {
 public JwtDecoder jwtDecoder(KeyPair keyPair) {
     return NimbusJwtDecoder.withPublicKey(
             (RSAPublicKey) keyPair.getPublic()).build();
+}
+
+@Bean
+public JwtAuthenticationConverter jwtAuthenticationConverter() {
+
+    JwtGrantedAuthoritiesConverter authoritiesConverter =
+            new JwtGrantedAuthoritiesConverter();
+
+    authoritiesConverter.setAuthoritiesClaimName("role");
+    authoritiesConverter.setAuthorityPrefix("ROLE_");
+
+    JwtAuthenticationConverter converter =
+            new JwtAuthenticationConverter();
+
+    converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
+
+    return converter;
 }
 
 }

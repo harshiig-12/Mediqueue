@@ -4,10 +4,10 @@ package com.mediqueue.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.mediqueue.entity.Patient;
 import com.mediqueue.repository.PatientRepository;
-
 @Service
 public class PatientService {
 
@@ -53,7 +53,8 @@ private final AppointmentService appointmentService;
     }
 
     // Delete patient
- public void deletePatient(Long id) {
+ @Transactional
+public void deletePatient(Long id) {
     appointmentService.deleteAppointmentsByPatientId(id);
     patientRepository.deleteById(id);
 }
