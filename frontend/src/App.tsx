@@ -830,7 +830,7 @@ if (!token) {
           'Dashboard',
           'Patients',
           'Register Patient',
-          'Doctors',
+           ...(userRole === 'ADMIN' ? ['Doctors'] : []),
           'Appointments'
         ].map((page) => (
           <button
@@ -1013,12 +1013,14 @@ page === 'Doctors' ? '⚕' : '▣'}
                           Edit
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handlePatientDelete(patient)}
-                        >
-                          Delete
-                        </button>
+                        {userRole === 'ADMIN' && (
+  <button
+    type="button"
+    onClick={() => handlePatientDelete(patient)}
+  >
+    Delete
+  </button>
+)}
                       </div>
                     ))}
 
@@ -1215,7 +1217,7 @@ page === 'Doctors' ? '⚕' : '▣'}
             )}
 
 
-{activePage === 'Doctors' && (
+{activePage === 'Doctors' && userRole === 'ADMIN' && (
   <section className="content-card">
     <div className="section-heading">
       <div>
