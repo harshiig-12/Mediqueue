@@ -1,4 +1,16 @@
-
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid
+} from 'recharts'
 import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 
@@ -660,6 +672,59 @@ const handleReschedule = async (id: number) => {
     (appointment) => appointment.status === 'CANCELLED'
   ).length
 
+  const appointmentChartData = [
+  { name: 'Scheduled', value: scheduledCount },
+  { name: 'Completed', value: completedCount },
+  { name: 'Cancelled', value: cancelledCount }
+]
+
+const chartColors = ['#3B82F6', '#22C55E', '#EF4444']
+
+const weeklyAppointmentData = (() => {
+  const today = new Date()
+  const startOfWeek = new Date(today)
+  const day = today.getDay()
+
+  startOfWeek.setDate(today.getDate() - day)
+  startOfWeek.setHours(0, 0, 0, 0)
+
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
+    (dayName, index) => {
+      const date = new Date(startOfWeek)
+      date.setDate(startOfWeek.getDate() + index)
+
+      const count = appointments.filter((appointment) => {
+        const appointmentDate = new Date(
+          appointment.appointmentDateTime
+        )
+
+        return appointmentDate.toDateString() === date.toDateString()
+      }).length
+
+      return { day: dayName, appointments: count }
+    }
+  )
+})()
+
+  const todayAppointments = appointments.filter((appointment) => {
+  const appointmentDate = new Date(appointment.appointmentDateTime)
+  const today = new Date()
+
+  return (
+    appointment.status === 'SCHEDULED' &&
+    appointmentDate.getDate() === today.getDate() &&
+    appointmentDate.getMonth() === today.getMonth() &&
+    appointmentDate.getFullYear() === today.getFullYear()
+  )
+}).length
+
+const upcomingAppointments = appointments.filter((appointment) => {
+  return (
+    appointment.status === 'SCHEDULED' &&
+    new Date(appointment.appointmentDateTime) > new Date()
+  )
+}).length
+
   
 const handleLogin = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -933,7 +998,79 @@ page === 'Doctors' ? '⚕' : '▣'}
                     <h2>{cancelledCount}</h2>
                     <span>Cancelled appointments</span>
                   </div>
+
+                  <div className="stat-card">
+  <div className="stat-icon blue">📅</div>
+  <p>Today's Appointments</p>
+  <h2>{todayAppointments}</h2>
+  <span>Scheduled for today</span>
+</div>
+
+<div className="stat-card">
+  <div className="stat-icon purple">⏳</div>
+  <p>Upcoming Appointments</p>
+  <h2>{upcomingAppointments}</h2>
+  <span>Future scheduled appointments</span>
+</div>
+
                 </section>
+                <section className="content-card">
+  <div className="section-heading">
+    <div>
+      <h2>Appointment Status Overview</h2>
+      <p>Distribution of hospital appointments</p>
+    </div>
+  </div>
+
+  <div style={{ width: '100%', height: 320 }}>
+    <ResponsiveContainer>
+      <PieChart>
+        <Pie
+          data={appointmentChartData}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          outerRadius={100}
+          label
+        >
+          {appointmentChartData.map((entry, index) => (
+            <Cell
+              key={entry.name}
+              fill={chartColors[index]}
+            />
+          ))}
+        </Pie>
+        <Tooltip />
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
+  </div>
+</section>
+<section className="content-card">
+  <div className="section-heading">
+    <div>
+      <h2>Weekly Appointment Activity</h2>
+      <p>Appointments recorded throughout this week</p>
+    </div>
+  </div>
+
+  <div style={{ width: '100%', height: 320 }}>
+    <ResponsiveContainer>
+      <BarChart data={weeklyAppointmentData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="day" />
+        <YAxis allowDecimals={false} />
+        <Tooltip />
+        <Bar
+          dataKey="appointments"
+          fill="#3B82F6"
+          radius={[6, 6, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</section>
 
                 <section className="content-card">
                   <div className="section-heading">
