@@ -1025,6 +1025,93 @@ const handleDeleteReport = async (id: number) => {
   }
 }
 
+const handlePrintReport = (report: MedicalTestReport) => {
+  const printWindow = window.open('', '_blank', 'width=800,height=900')
+
+  if (!printWindow) {
+    alert('Please allow pop-ups to print the report.')
+    return
+  }
+
+  const escapeHtml = (value: string) =>
+    value.replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[char]!)
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Medical Test Report #${report.id}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            color: #222;
+          }
+          .header {
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 20px;
+          }
+          h1 { color: #2563eb; }
+          .details {
+            margin-top: 30px;
+            line-height: 2;
+          }
+          .result {
+            margin-top: 25px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+          }
+          .footer {
+            margin-top: 50px;
+            text-align: center;
+            color: #666;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>MediQueue</h1>
+          <h2>Medical Test Report</h2>
+          <p>Report ID: ${report.id}</p>
+        </div>
+
+        <div class="details">
+          <strong>Patient:</strong> ${escapeHtml(report.patient?.name || 'N/A')}<br />
+          <strong>Test Name:</strong> ${escapeHtml(report.testName)}<br />
+          <strong>Test Date:</strong> ${escapeHtml(report.testDate)}
+        </div>
+
+        <div class="result">
+          <h3>Test Result</h3>
+          <p>${escapeHtml(report.result).replace(/\n/g, '<br />')}</p>
+
+          ${report.notes
+            ? `<h3>Additional Notes</h3><p>${escapeHtml(report.notes).replace(/\n/g, '<br />')}</p>`
+            : ''}
+        </div>
+
+        <div class="footer">
+          <p>Generated through MediQueue</p>
+          <p>This report reflects the information entered into the system.</p>
+        </div>
+
+        <script>
+          window.onload = () => window.print()
+        </script>
+      </body>
+    </html>
+  `)
+
+  printWindow.document.close()
+}
+
 
 const handleRecordPayment = async (billId: number) => {
   setPaymentMessage('')
@@ -2443,6 +2530,13 @@ page === 'Doctors' ? '⚕' : '▣'}
               <strong>Notes:</strong> {report.notes}
             </p>
           )}
+          <button
+  className="submit-btn"
+  type="button"
+  onClick={() => handlePrintReport(report)}
+>
+  🖨 Print Report
+</button>
           {userRole === 'ADMIN' && (
   <div className="action-buttons">
     <button
