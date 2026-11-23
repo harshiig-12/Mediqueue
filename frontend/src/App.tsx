@@ -68,6 +68,15 @@ interface Billing {
   paymentStatus: string
 }
 
+interface MedicalTestReport {
+  id: number
+  testName: string
+  testDate: string
+  result: string
+  notes: string
+  patient: Patient
+}
+
 
 
 
@@ -76,7 +85,8 @@ async function fetchDashboardData(token: string) {
     patientResponse,
     appointmentResponse,
     doctorResponse,
-    billingResponse
+    billingResponse,
+    reportResponse
   ] = await Promise.all([
     fetch(`${API}/patients`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -89,14 +99,18 @@ async function fetchDashboardData(token: string) {
     }),
     fetch(`${API}/billing`, {
       headers: { Authorization: `Bearer ${token}` }
-    })
+    }),
+    fetch('http://localhost:8080/api/test-reports', {
+  headers: { Authorization: `Bearer ${token}` }
+})
   ])
 
   if (
     !patientResponse.ok ||
     !appointmentResponse.ok ||
     !doctorResponse.ok ||
-    !billingResponse.ok
+    !billingResponse.ok ||
+    !reportResponse.ok
   ) {
     throw new Error('Unable to load data from the server.')
   }
@@ -105,8 +119,9 @@ async function fetchDashboardData(token: string) {
   const appointments: Appointment[] = await appointmentResponse.json()
   const doctors: Doctor[] = await doctorResponse.json()
   const bills: Billing[] = await billingResponse.json()
+  const reports = await reportResponse.json()
 
-  return { patients, appointments, doctors, bills }
+  return { patients, appointments, doctors, bills, reports}
 }
 
 
@@ -126,6 +141,19 @@ const [billingMessage, setBillingMessage] = useState('')
 const [billingLoading, setBillingLoading] = useState(false)
 const [paymentAmounts, setPaymentAmounts] = useState<Record<number, string>>({})
 const [paymentMessage, setPaymentMessage] = useState('')
+const [reports, setReports] = useState<MedicalTestReport[]>([])
+const [reportPatientId, setReportPatientId] = useState('')
+const [reportTestName, setReportTestName] = useState('')
+const [reportTestDate, setReportTestDate] = useState('')
+const [reportResult, setReportResult] = useState('')
+const [reportNotes, setReportNotes] = useState('')
+const [reportMessage, setReportMessage] = useState('')
+const [reportLoading, setReportLoading] = useState(false)
+const [editingReportId, setEditingReportId] = useState<number | null>(null)
+const [editTestName, setEditTestName] = useState('')
+const [editTestDate, setEditTestDate] = useState('')
+const [editResult, setEditResult] = useState('')
+const [editNotes, setEditNotes] = useState('')
 
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState('All')
   const [selectedScheduleDate, setSelectedScheduleDate] = useState(
@@ -252,6 +280,7 @@ useEffect(() => {
           setAppointments(data.appointments)
           setDoctors(data.doctors)
           setBills(data.bills)
+          setReports(data.reports)
         }
       })
       .catch((err: unknown) => {
@@ -871,6 +900,132 @@ const handleGenerateBill = async (e: React.FormEvent) => {
   }
 }
 
+
+const handleCreateReport = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setReportMessage('')
+
+  if (!reportPatientId || !reportTestName.trim() || !reportTestDate || !reportResult.trim()) {
+    setReportMessage('Please fill in all required fields.')
+    return
+  }
+
+  setReportLoading(true)
+
+  try {
+    const response = await fetch(
+      `${API}/test-reports?patientId=${Number(reportPatientId)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          testName: reportTestName.trim(),
+          testDate: reportTestDate,
+          result: reportResult.trim(),
+          notes: reportNotes.trim()
+        })
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to create report.')
+    }
+
+    setReportMessage('Medical test report created successfully!')
+    setReportPatientId('')
+    setReportTestName('')
+    setReportTestDate('')
+    setReportResult('')
+    setReportNotes('')
+
+    const updatedReports = await fetch(`${API}/test-reports`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    if (!updatedReports.ok) {
+      throw new Error('Report created, but the report list could not refresh.')
+    }
+
+    setReports(await updatedReports.json())
+
+  } catch (error) {
+    setReportMessage(
+      error instanceof Error ? error.message : 'Report creation failed.'
+    )
+  } finally {
+    setReportLoading(false)
+  }
+}
+const handleUpdateReport = async (e: React.FormEvent) => {
+  e.preventDefault()
+
+  if (editingReportId === null) return
+
+  try {
+    const response = await fetch(
+      `${API}/test-reports/${editingReportId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          testName: editTestName,
+          testDate: editTestDate,
+          result: editResult,
+          notes: editNotes
+        })
+      }
+    )
+
+    if (!response.ok) throw new Error('Unable to update report.')
+
+    const updatedReports = await fetch(`${API}/test-reports`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    if (!updatedReports.ok) throw new Error('Unable to refresh reports.')
+
+    setReports(await updatedReports.json())
+    setEditingReportId(null)
+    setReportMessage('Report updated successfully!')
+  } catch (error) {
+    setReportMessage(
+      error instanceof Error ? error.message : 'Update failed.'
+    )
+  }
+}
+const handleDeleteReport = async (id: number) => {
+  if (!window.confirm('Are you sure you want to delete this report?')) {
+    return
+  }
+
+  try {
+    const response = await fetch(`${API}/test-reports/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) throw new Error('Unable to delete report.')
+
+    setReports(previous => previous.filter(report => report.id !== id))
+    setReportMessage('Report deleted successfully!')
+  } catch (error) {
+    setReportMessage(
+      error instanceof Error ? error.message : 'Delete failed.'
+    )
+  }
+}
+
+
 const handleRecordPayment = async (billId: number) => {
   setPaymentMessage('')
 
@@ -1156,7 +1311,8 @@ if (!token) {
           'Register Patient',
            ...(userRole === 'ADMIN' ? ['Doctors'] : []),
           'Appointments',
-          'Billing'
+          'Billing',
+          'Medical Test Reports',
         ].map((page) => (
           <button
             key={page}
@@ -2190,12 +2346,191 @@ page === 'Doctors' ? '⚕' : '▣'}
   </section>
 )}
 
+{activePage === 'Medical Test Reports' && (
+  <section className="content-card">
+    <div className="section-heading">
+      <div>
+        <h2>Medical Test Reports</h2>
+        <p>Manage and view patient medical test records</p>
+      </div>
+      <span className="count-label">
+        {reports.length} Reports
+      </span>
+    </div>
+
+    {userRole === 'ADMIN' && (
+      <div className="booking-form">
+        <h2>Add New Test Report</h2>
+        <p>Create a medical test report for a registered patient.</p>
+
+        <form onSubmit={handleCreateReport}>
+          <label>Patient</label>
+          <select
+            value={reportPatientId}
+            onChange={(e) => setReportPatientId(e.target.value)}
+            required
+          >
+            <option value="">Select a patient</option>
+            {patients.map((patient) => (
+              <option key={patient.id} value={patient.id}>
+                {patient.name} (ID: {patient.id})
+              </option>
+            ))}
+          </select>
+
+          <label>Test Name</label>
+          <input
+            type="text"
+            placeholder="e.g. Complete Blood Count"
+            value={reportTestName}
+            onChange={(e) => setReportTestName(e.target.value)}
+            required
+          />
+
+          <label>Test Date</label>
+          <input
+            type="date"
+            value={reportTestDate}
+            onChange={(e) => setReportTestDate(e.target.value)}
+            required
+          />
+
+          <label>Test Result</label>
+          <textarea
+            placeholder="Enter test results"
+            value={reportResult}
+            onChange={(e) => setReportResult(e.target.value)}
+            required
+          />
+
+          <label>Additional Notes</label>
+          <textarea
+            placeholder="Optional observations or notes"
+            value={reportNotes}
+            onChange={(e) => setReportNotes(e.target.value)}
+          />
+
+          <button
+            className="submit-btn"
+            type="submit"
+            disabled={reportLoading}
+          >
+            {reportLoading ? 'Saving...' : '+ Add Test Report'}
+          </button>
+        </form>
+
+        {reportMessage && (
+          <p className="form-message">{reportMessage}</p>
+        )}
+      </div>
+    )}
+
+    <div className="patient-grid">
+      {reports.map((report) => (
+        <div className="patient-card" key={report.id}>
+          <h3>{report.testName}</h3>
+
+          <p>Patient: {report.patient?.name}</p>
+          <p>Report ID: {report.id}</p>
+          <p>Test Date: {report.testDate}</p>
+
+          <p>
+            <strong>Result:</strong> {report.result}
+          </p>
+
+          {report.notes && (
+            <p>
+              <strong>Notes:</strong> {report.notes}
+            </p>
+          )}
+          {userRole === 'ADMIN' && (
+  <div className="action-buttons">
+    <button
+      className="submit-btn"
+      type="button"
+      onClick={() => {
+        setEditingReportId(report.id)
+        setEditTestName(report.testName)
+        setEditTestDate(report.testDate)
+        setEditResult(report.result)
+        setEditNotes(report.notes || '')
+      }}
+    >
+      Edit Report
+    </button>
+
+    <button
+      className="submit-btn"
+      type="button"
+      onClick={() => handleDeleteReport(report.id)}
+    >
+      Delete Report
+    </button>
+  </div>
+)}
+{editingReportId === report.id && (
+  <form onSubmit={handleUpdateReport} className="booking-form">
+    <h3>Edit Medical Test Report</h3>
+
+    <label>Test Name</label>
+    <input
+      value={editTestName}
+      onChange={(e) => setEditTestName(e.target.value)}
+      required
+    />
+
+    <label>Test Date</label>
+    <input
+      type="date"
+      value={editTestDate}
+      onChange={(e) => setEditTestDate(e.target.value)}
+      required
+    />
+
+    <label>Result</label>
+    <textarea
+      value={editResult}
+      onChange={(e) => setEditResult(e.target.value)}
+      required
+    />
+
+    <label>Notes</label>
+    <textarea
+      value={editNotes}
+      onChange={(e) => setEditNotes(e.target.value)}
+    />
+
+    <button className="submit-btn" type="submit">
+      Save Changes
+    </button>
+
+    <button
+      className="submit-btn"
+      type="button"
+      onClick={() => setEditingReportId(null)}
+    >
+      Cancel
+    </button>
+  </form>
+)}
+        </div>
+      ))}
+
+      {reports.length === 0 && (
+        <p>No medical test reports available yet.</p>
+      )}
+    </div>
+  </section>
+)}
+
+
           </>
         )}
       </main>
     </div>
   )
 }
+
 
 // APPOINTMENT TABLE COMPONENT
 
