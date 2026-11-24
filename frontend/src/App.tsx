@@ -150,6 +150,8 @@ const [reportNotes, setReportNotes] = useState('')
 const [reportMessage, setReportMessage] = useState('')
 const [reportLoading, setReportLoading] = useState(false)
 const [editingReportId, setEditingReportId] = useState<number | null>(null)
+const [reportSearch, setReportSearch] = useState('')
+const [reportFilterPatientId, setReportFilterPatientId] = useState('')
 const [editTestName, setEditTestName] = useState('')
 const [editTestDate, setEditTestDate] = useState('')
 const [editResult, setEditResult] = useState('')
@@ -467,7 +469,10 @@ const handleDeleteDoctor = async (id: number) => {
 
   try {
     const response = await fetch(`${API}/doctors/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
     })
 
     
@@ -710,7 +715,18 @@ const handleReschedule = async (id: number) => {
       )
 
       if (!response.ok) {
-        throw new Error('Could not delete patient.')
+        const errorText = await response.text()
+        let errorMessage = errorText || `Delete failed (HTTP ${response.status})`
+
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage =
+            errorData.message || errorData.error || errorMessage
+        } catch {
+          // Keep the server response as the error message
+        }
+
+        throw new Error(errorMessage)
       }
 
       setMessage('Patient deleted successfully!')
@@ -1517,7 +1533,8 @@ page === 'Doctors' ? '⚕' : '▣'}
 </div>
 
                 </section>
-                <section className="content-card">
+                <div className="dashboard-charts">
+                <section className="content-card chart-card">
   <div className="section-heading">
     <div>
       <h2>Appointment Status Overview</h2>
@@ -1550,7 +1567,7 @@ page === 'Doctors' ? '⚕' : '▣'}
     </ResponsiveContainer>
   </div>
 </section>
-<section className="content-card">
+<section className="content-card chart-card">
   <div className="section-heading">
     <div>
       <h2>Weekly Appointment Activity</h2>
@@ -1574,8 +1591,9 @@ page === 'Doctors' ? '⚕' : '▣'}
     </ResponsiveContainer>
   </div>
 </section>
+                </div>
 
-                <section className="content-card">
+                <section className="content-card recent-appointments-card">
                   <div className="section-heading">
                     <div>
                       <h2>Recent Appointments</h2>
@@ -1625,6 +1643,7 @@ page === 'Doctors' ? '⚕' : '▣'}
 {paymentMessage && (
   <p className="form-message">{paymentMessage}</p>
 )}
+
                 <div className="patient-grid">
                   {patients
                     .filter((patient) =>
@@ -2512,8 +2531,47 @@ page === 'Doctors' ? '⚕' : '▣'}
       </div>
     )}
 
+    <div className="booking-form">
+  <h3>Search & Filter Reports</h3>
+
+  <label>Search by patient or test name</label>
+  <input
+    type="text"
+    placeholder="Enter patient name or test name..."
+    value={reportSearch}
+    onChange={(e) => setReportSearch(e.target.value)}
+  />
+
+  <label>Filter by Patient</label>
+  <select
+    value={reportFilterPatientId}
+    onChange={(e) => setReportFilterPatientId(e.target.value)}
+  >
+    <option value="">All Patients</option>
+    {patients.map((patient) => (
+      <option key={patient.id} value={patient.id}>
+        {patient.name}
+      </option>
+    ))}
+  </select>
+</div>
+
     <div className="patient-grid">
-      {reports.map((report) => (
+      {reports
+  .filter((report) => {
+    const search = reportSearch.toLowerCase()
+
+    const matchesSearch =
+      report.testName.toLowerCase().includes(search) ||
+      report.patient?.name?.toLowerCase().includes(search)
+
+    const matchesPatient =
+      !reportFilterPatientId ||
+      String(report.patient?.id) === reportFilterPatientId
+
+    return matchesSearch && matchesPatient
+  })
+  .map((report) => (
         <div className="patient-card" key={report.id}>
           <h3>{report.testName}</h3>
 
@@ -2610,7 +2668,15 @@ page === 'Doctors' ? '⚕' : '▣'}
         </div>
       ))}
 
-      {reports.length === 0 && (
+      {reports.filter((report) => {
+  const search = reportSearch.toLowerCase()
+  return (
+    (report.testName.toLowerCase().includes(search) ||
+      report.patient?.name?.toLowerCase().includes(search)) &&
+    (!reportFilterPatientId ||
+      String(report.patient?.id) === reportFilterPatientId)
+  )
+}).length === 0 && (
         <p>No medical test reports available yet.</p>
       )}
     </div>
