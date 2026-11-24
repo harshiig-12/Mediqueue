@@ -469,10 +469,7 @@ const handleDeleteDoctor = async (id: number) => {
 
   try {
     const response = await fetch(`${API}/doctors/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      method: 'DELETE'
     })
 
     
@@ -715,18 +712,7 @@ const handleReschedule = async (id: number) => {
       )
 
       if (!response.ok) {
-        const errorText = await response.text()
-        let errorMessage = errorText || `Delete failed (HTTP ${response.status})`
-
-        try {
-          const errorData = JSON.parse(errorText)
-          errorMessage =
-            errorData.message || errorData.error || errorMessage
-        } catch {
-          // Keep the server response as the error message
-        }
-
-        throw new Error(errorMessage)
+        throw new Error('Could not delete patient.')
       }
 
       setMessage('Patient deleted successfully!')
@@ -762,7 +748,7 @@ const handleReschedule = async (id: number) => {
   { name: 'Cancelled', value: cancelledCount }
 ]
 
-const chartColors = ['#3B82F6', '#22C55E', '#EF4444']
+const chartColors = ['#4F46E5', '#10B981', '#F43F5E']
 
 const weeklyAppointmentData = (() => {
   const today = new Date()
@@ -1430,7 +1416,9 @@ if (!token) {
               {page === 'Dashboard' ? '▦' :
                 page === 'Patients' ? '♙' :
                   page === 'Register Patient' ? '+' :
-page === 'Doctors' ? '⚕' : '▣'}
+page === 'Doctors' ? '⚕' :
+page === 'Billing' ? '₹' :
+page === 'Medical Test Reports' ? '☤' : '▣'}
             </span>
             {page}
           </button>
@@ -1534,7 +1522,7 @@ page === 'Doctors' ? '⚕' : '▣'}
 
                 </section>
                 <div className="dashboard-charts">
-                <section className="content-card chart-card">
+                <section className="content-card">
   <div className="section-heading">
     <div>
       <h2>Appointment Status Overview</h2>
@@ -1545,13 +1533,15 @@ page === 'Doctors' ? '⚕' : '▣'}
   <div style={{ width: '100%', height: 320 }}>
     <ResponsiveContainer>
       <PieChart>
-        <Pie
+<Pie
           data={appointmentChartData}
           dataKey="value"
           nameKey="name"
           cx="50%"
           cy="50%"
-          outerRadius={100}
+          innerRadius={62}
+          outerRadius={98}
+          paddingAngle={4}
           label
         >
           {appointmentChartData.map((entry, index) => (
@@ -1567,7 +1557,7 @@ page === 'Doctors' ? '⚕' : '▣'}
     </ResponsiveContainer>
   </div>
 </section>
-<section className="content-card chart-card">
+<section className="content-card">
   <div className="section-heading">
     <div>
       <h2>Weekly Appointment Activity</h2>
@@ -1584,8 +1574,8 @@ page === 'Doctors' ? '⚕' : '▣'}
         <Tooltip />
         <Bar
           dataKey="appointments"
-          fill="#3B82F6"
-          radius={[6, 6, 0, 0]}
+          fill="#4F46E5"
+          radius={[8, 8, 0, 0]}
         />
       </BarChart>
     </ResponsiveContainer>
@@ -1593,7 +1583,7 @@ page === 'Doctors' ? '⚕' : '▣'}
 </section>
                 </div>
 
-                <section className="content-card recent-appointments-card">
+                <section className="content-card">
                   <div className="section-heading">
                     <div>
                       <h2>Recent Appointments</h2>
@@ -2796,7 +2786,7 @@ function AppointmentTable({
 
           {appointments.length === 0 && (
             <tr>
-              <td colSpan={6} className="empty-state">
+              <td colSpan={8} className="empty-state">
                 No appointments found.
               </td>
             </tr>
