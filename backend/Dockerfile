@@ -21,4 +21,4 @@ COPY --from=build /app/target/backend-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 10000
 
-ENTRYPOINT ["sh", "-c", "base64 -d /etc/secrets/jwt-keystore.p12.base64 > /tmp/jwt-keystore.p12 && exec java -Dmediqueue.jwt.keystore-path=/tmp/jwt-keystore.p12 -Dserver.port=${PORT:-10000} -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "base64 -d /etc/secrets/jwt-keystore.p12.base64 > /tmp/jwt-keystore.p12 && exec java -Dspring.profiles.active=prod -Dserver.port=${PORT:-10000} -jar app.jar"]
