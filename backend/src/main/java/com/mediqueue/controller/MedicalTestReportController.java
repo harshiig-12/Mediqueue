@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,7 +20,6 @@ import com.mediqueue.service.MedicalTestReportService;
 
 @RestController
 @RequestMapping("/api/test-reports")
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174"})
 public class MedicalTestReportController {
 
     private final MedicalTestReportService reportService;

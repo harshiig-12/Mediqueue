@@ -21,4 +21,8 @@ COPY --from=build /app/target/backend-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 10000
 
-ENTRYPOINT ["sh", "-c", "base64 -d /etc/secrets/jwt-keystore.p12.base64 > /tmp/jwt-keystore.p12 && exec java -Dspring.profiles.active=prod -Dserver.port=${PORT:-10000} -jar app.jar"]
+# Memory settings for a small (256 MB) free server
+ENV JAVA_TOOL_OPTIONS="-Xms32m -Xmx80m -Xss512k -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=32m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+
+# The JWT keystore is supplied as a base64 text environment variable
+ENTRYPOINT ["sh", "-c", "printf '%s' \"$JWT_KEYSTORE_BASE64\" | base64 -d > /tmp/jwt-keystore.p12 && exec java -Dspring.profiles.active=prod -Dserver.port=${PORT:-10000} -jar app.jar"]

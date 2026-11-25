@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +18,6 @@ import com.mediqueue.service.BillingService;
 
 @RestController
 @RequestMapping("/api/billing")
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174"})
 public class BillingController {
 
     private final BillingService billingService;

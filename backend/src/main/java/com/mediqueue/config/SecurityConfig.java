@@ -83,12 +83,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${mediqueue.cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
+            List<String> allowedOrigins) {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-            List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(allowedOrigins);
 
         configuration.setAllowedMethods(
             List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

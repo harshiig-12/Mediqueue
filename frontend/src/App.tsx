@@ -14,7 +14,7 @@ import {
 import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 
-const API = 'http://localhost:8080/api'
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api'
 
 interface Patient {
   id: number
@@ -100,7 +100,7 @@ async function fetchDashboardData(token: string) {
     fetch(`${API}/billing`, {
       headers: { Authorization: `Bearer ${token}` }
     }),
-    fetch('http://localhost:8080/api/test-reports', {
+    fetch(`${API}/test-reports`, {
   headers: { Authorization: `Bearer ${token}` }
 })
   ])
