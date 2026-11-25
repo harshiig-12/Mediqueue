@@ -1,0 +1,26 @@
+# Local development example.
+# Copy this file to application.properties.
+# Replace the fallback values below or set the corresponding environment variables.
+# Never commit the real application.properties file or secrets.
+
+spring.application.name=MediQueue
+
+# PostgreSQL
+spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/mediqueue_db}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME:postgres}
+spring.datasource.password=${DB_PASSWORD:CHANGE_ME}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=false
+
+# JWT PKCS#12 keystore (must contain a private key with alias "mediqueue")
+mediqueue.jwt.keystore-path=${MEDIQUEUE_JWT_KEYSTORE_PATH:C:/Users/YOUR_WINDOWS_USERNAME/.mediqueue/jwt-keystore.p12}
+mediqueue.jwt.keystore-password=${JWT_KEYSTORE_PASSWORD:CHANGE_ME}
+
+# Comma-separated frontend origins
+mediqueue.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
+
+server.port=8080
