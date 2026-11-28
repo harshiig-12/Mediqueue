@@ -1,131 +1,20 @@
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid
-} from 'recharts'
 import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api'
+import type { Patient, Doctor, Appointment, Billing, MedicalTestReport } from './types'
+import { API, fetchDashboardData } from './services/api'
 
-interface Patient {
-  id: number
-  name: string
-  age: number
-  gender: string
-  phone: string
-  email: string
-  dateOfBirth?: string
-}
- 
-interface Doctor {
-  id: number
-  name: string
-  specialization: string
-  phone: string
-  email: string
-  consultationFee: number
-  availableDays?: string
-  morningStartTime?: string
-  morningEndTime?: string
-  eveningStartTime?: string
-  eveningEndTime?: string
-}
-
-
-interface Appointment {
-  id: number
-  doctorName: string
-  doctor?: Doctor
-  appointmentDateTime: string
-  reason: string
-  status: string
-  patient: Patient
-  appointmentType?: string
-estimatedDurationMinutes?: number | null
-}
-
-interface Billing {
-  id: number
-  billNumber: string
-  billDate: string
-  patient: Patient
-  appointment?: Appointment | null
-  doctorName: string
-  consultationFee: number
-  additionalCharges: number
-  discount: number
-  totalAmount: number
-  amountPaid: number
-  paymentStatus: string
-}
-
-interface MedicalTestReport {
-  id: number
-  testName: string
-  testDate: string
-  result: string
-  notes: string
-  patient: Patient
-}
-
-
-
-
-async function fetchDashboardData(token: string) {
-  const [
-    patientResponse,
-    appointmentResponse,
-    doctorResponse,
-    billingResponse,
-    reportResponse
-  ] = await Promise.all([
-    fetch(`${API}/patients`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }),
-    fetch(`${API}/appointments`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }),
-    fetch(`${API}/doctors`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }),
-    fetch(`${API}/billing`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }),
-    fetch(`${API}/test-reports`, {
-  headers: { Authorization: `Bearer ${token}` }
-})
-  ])
-
-  if (
-    !patientResponse.ok ||
-    !appointmentResponse.ok ||
-    !doctorResponse.ok ||
-    !billingResponse.ok ||
-    !reportResponse.ok
-  ) {
-    throw new Error('Unable to load data from the server.')
-  }
-
-  const patients: Patient[] = await patientResponse.json()
-  const appointments: Appointment[] = await appointmentResponse.json()
-  const doctors: Doctor[] = await doctorResponse.json()
-  const bills: Billing[] = await billingResponse.json()
-  const reports = await reportResponse.json()
-
-  return { patients, appointments, doctors, bills, reports}
-}
-
-
- 
+import AuthForm from './components/auth/AuthForm'
+import Sidebar from './components/layout/Sidebar'
+import Navbar from './components/layout/Navbar'
+import DashboardPage from './components/dashboard/DashboardPage'
+import PatientDirectory from './components/patients/PatientDirectory'
+import PatientEditForm from './components/patients/PatientEditForm'
+import PatientRegistrationForm from './components/patients/PatientRegistrationForm'
+import DoctorManagement from './components/doctors/DoctorManagement'
+import AppointmentManagement from './components/appointments/AppointmentManagement'
+import BillingManagement from './components/billing/BillingManagement'
+import MedicalTestReports from './components/reports/MedicalTestReports'
 
 function App() {
   const [patients, setPatients] = useState<Patient[]>([])
@@ -268,7 +157,7 @@ useEffect(() => {
   return () => {
     cancelled = true
   }
-}, [selectedDoctorId, selectedDate, appointmentType])
+}, [token, selectedDoctorId, selectedDate, appointmentType])
 
 
   useEffect(() => {
@@ -1311,142 +1200,41 @@ const handleLogout = () => {
 
 if (!token) {
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-brand">
-          <h1>✚ MediQueue</h1>
-          <p>Hospital Management System</p>
-        </div>
-
-        <h2>
-          {authPage === 'login' ? 'Welcome Back' : 'Create Account'}
-        </h2>
-        <p>
-          {authPage === 'login'
-            ? 'Sign in to continue to your dashboard'
-            : 'Register to get started with MediQueue'}
-        </p>
-
-        <form onSubmit={authPage === 'login' ? handleLogin : handleRegister}>
-          {authPage === 'register' && (
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={authName}
-              onChange={(e) => setAuthName(e.target.value)}
-              required
-            />
-          )}
-
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={authEmail}
-            onChange={(e) => setAuthEmail(e.target.value)}
-            required
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={authPassword}
-            onChange={(e) => setAuthPassword(e.target.value)}
-            required
-          />
-
-          {authMessage && <p>{authMessage}</p>}
-
-          <button type="submit">
-            {authPage === 'login' ? 'Sign In' : 'Create Account'}
-          </button>
-        </form>
-
-        <p>
-          {authPage === 'login'
-            ? "Don't have an account?"
-            : 'Already have an account?'}
-          {' '}
-          <button
-            type="button"
-            onClick={() => {
-              setAuthPage(authPage === 'login' ? 'register' : 'login');
-              setAuthMessage('');
-            }}
-          >
-            {authPage === 'login' ? 'Register' : 'Sign In'}
-          </button>
-        </p>
-      </div>
-    </div>
-  );
+    <AuthForm
+      authPage={authPage}
+      authName={authName}
+      authEmail={authEmail}
+      authPassword={authPassword}
+      authMessage={authMessage}
+      setAuthName={setAuthName}
+      setAuthEmail={setAuthEmail}
+      setAuthPassword={setAuthPassword}
+      onLogin={handleLogin}
+      onRegister={handleRegister}
+      onTogglePage={() => {
+        setAuthPage(authPage === 'login' ? 'register' : 'login')
+        setAuthMessage('')
+      }}
+    />
+  )
 }
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-icon">✚</div>
-          <div>
-            <h2>MediQueue</h2>
-            <span>Hospital Management</span>
-          </div>
-        </div>
-
-        <p className="menu-heading">MENU</p>
-
-        {[
-          'Dashboard',
-          'Patients',
-          'Register Patient',
-           ...(userRole === 'ADMIN' ? ['Doctors'] : []),
-          'Appointments',
-          'Billing',
-          'Medical Test Reports',
-        ].map((page) => (
-          <button
-            key={page}
-            className={`nav-item ${activePage === page ? 'active' : ''}`}
-            onClick={() => {
-              setActivePage(page)
-              setMessage('')
-              setError('')
-            }}
-          >
-            <span>
-              {page === 'Dashboard' ? '▦' :
-                page === 'Patients' ? '♙' :
-                  page === 'Register Patient' ? '+' :
-page === 'Doctors' ? '⚕' :
-page === 'Billing' ? '₹' :
-page === 'Medical Test Reports' ? '☤' : '▣'}
-            </span>
-            {page}
-          </button>
-        ))}
-
-        <div className="sidebar-bottom">
-  <div className="admin-avatar">
-    {userName.charAt(0).toUpperCase()}
-  </div>
-  <div>
-    <strong>{userName}</strong>
-    <span>{userRole}</span>
-  </div>
-  <button onClick={handleLogout}>Logout</button>
-</div>
-      </aside>
+      <Sidebar
+        activePage={activePage}
+        userRole={userRole}
+        userName={userName}
+        onNavigate={(page) => {
+          setActivePage(page)
+          setMessage('')
+          setError('')
+        }}
+        onLogout={handleLogout}
+      />
 
       <main className="main-content">
-        <header className="topbar">
-          <div>
-            <span className="breadcrumb">MediQueue / {activePage}</span>
-            <h1>{activePage}</h1>
-          </div>
-
-          <button className="refresh-btn" onClick={loadData}>
-            ↻ Refresh
-          </button>
-        </header>
+        <Navbar activePage={activePage} onRefresh={loadData} />
 
         {error && <div className="error-message">{error}</div>}
 
@@ -1456,1223 +1244,257 @@ page === 'Medical Test Reports' ? '☤' : '▣'}
           <p className="loading">Loading MediQueue data...</p>
         ) : (
           <>
-            {/* DASHBOARD */}
             {activePage === 'Dashboard' && (
-              <>
-                <section className="welcome-banner">
-                  <div>
-                    <span>HOSPITAL MANAGEMENT SYSTEM</span>
-                    <h2>Welcome to MediQueue 👋</h2>
-                    <p>
-                      Manage your patients and appointments from one place.
-                    </p>
-                  </div>
-                  <div className="welcome-symbol">✚</div>
-                </section>
-
-                <section className="stats-grid">
-                  <div className="stat-card">
-                    <div className="stat-icon blue">♙</div>
-                    <p>Total Patients</p>
-                    <h2>{patients.length}</h2>
-                    <span>Registered patients</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <div className="stat-icon purple">▣</div>
-                    <p>Total Appointments</p>
-                    <h2>{appointments.length}</h2>
-                    <span>All recorded appointments</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <div className="stat-icon green">✓</div>
-                    <p>Scheduled</p>
-                    <h2>{scheduledCount}</h2>
-                    <span>Scheduled appointments</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <div className="stat-icon green">✓</div>
-                    <p>Completed</p>
-                    <h2>{completedCount}</h2>
-                    <span>Completed appointments</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <div className="stat-icon purple">×</div>
-                    <p>Cancelled</p>
-                    <h2>{cancelledCount}</h2>
-                    <span>Cancelled appointments</span>
-                  </div>
-
-                  <div className="stat-card">
-  <div className="stat-icon blue">📅</div>
-  <p>Today's Appointments</p>
-  <h2>{todayAppointments}</h2>
-  <span>Scheduled for today</span>
-</div>
-
-<div className="stat-card">
-  <div className="stat-icon purple">⏳</div>
-  <p>Upcoming Appointments</p>
-  <h2>{upcomingAppointments}</h2>
-  <span>Future scheduled appointments</span>
-</div>
-
-                </section>
-                <div className="dashboard-charts">
-                <section className="content-card">
-  <div className="section-heading">
-    <div>
-      <h2>Appointment Status Overview</h2>
-      <p>Distribution of hospital appointments</p>
-    </div>
-  </div>
-
-  <div style={{ width: '100%', height: 320 }}>
-    <ResponsiveContainer>
-      <PieChart>
-<Pie
-          data={appointmentChartData}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          innerRadius={62}
-          outerRadius={98}
-          paddingAngle={4}
-          label
-        >
-          {appointmentChartData.map((entry, index) => (
-            <Cell
-              key={entry.name}
-              fill={chartColors[index]}
-            />
-          ))}
-        </Pie>
-        <Tooltip />
-        <Legend />
-      </PieChart>
-    </ResponsiveContainer>
-  </div>
-</section>
-<section className="content-card">
-  <div className="section-heading">
-    <div>
-      <h2>Weekly Appointment Activity</h2>
-      <p>Appointments recorded throughout this week</p>
-    </div>
-  </div>
-
-  <div style={{ width: '100%', height: 320 }}>
-    <ResponsiveContainer>
-      <BarChart data={weeklyAppointmentData}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="day" />
-        <YAxis allowDecimals={false} />
-        <Tooltip />
-        <Bar
-          dataKey="appointments"
-          fill="#4F46E5"
-          radius={[8, 8, 0, 0]}
-        />
-      </BarChart>
-    </ResponsiveContainer>
-  </div>
-</section>
-                </div>
-
-                <section className="content-card">
-                  <div className="section-heading">
-                    <div>
-                      <h2>Recent Appointments</h2>
-                      <p>Latest appointments registered in the system</p>
-                    </div>
-
-                    <button
-                      className="text-btn"
-                      onClick={() => setActivePage('Appointments')}
-                    >
-                      View all →
-                    </button>
-                  </div>
-
-                  <AppointmentTable
-  appointments={appointments.slice(0, 5)}
-  formatDate={formatDate}
-  onCancel={handleCancel}
-  onComplete={handleComplete}
-  onReschedule={handleReschedule}
-/>
-                </section>
-              </>
+              <DashboardPage
+                totalPatients={patients.length}
+                totalAppointments={appointments.length}
+                scheduledCount={scheduledCount}
+                completedCount={completedCount}
+                cancelledCount={cancelledCount}
+                todayAppointments={todayAppointments}
+                upcomingAppointments={upcomingAppointments}
+                appointmentChartData={appointmentChartData}
+                chartColors={chartColors}
+                weeklyAppointmentData={weeklyAppointmentData}
+                appointments={appointments}
+                formatDate={formatDate}
+                onCancel={handleCancel}
+                onComplete={handleComplete}
+                onReschedule={handleReschedule}
+                onViewAll={() => setActivePage('Appointments')}
+              />
             )}
 
-            {/* PATIENT DIRECTORY */}
             {activePage === 'Patients' && (
-              <section className="content-card">
-                <div className="section-heading">
-                  <div>
-                    <h2>Patient Directory</h2>
-                    <p>All registered patients</p>
-                  </div>
-
-                  <span className="count-label">
-                    {patients.length} Patients
-                  </span>
-                </div>
-
-                <input
-                  type="text"
-                  placeholder="Search by name, phone, or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
-{paymentMessage && (
-  <p className="form-message">{paymentMessage}</p>
-)}
-
-                <div className="patient-grid">
-                  {patients
-                    .filter((patient) =>
-                      `${patient.name} ${patient.phone} ${patient.email}`
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase())
-                    )
-                    .map((patient) => (
-                      <div className="patient-card" key={patient.id}>
-                        <div className="patient-avatar">
-                          {patient.name.charAt(0).toUpperCase()}
-                        </div>
-
-                        <h3>{patient.name}</h3>
-                        <p>Patient ID: #{patient.id}</p>
-
-                        <div className="patient-details">
-                          <span>Age: {patient.age}</span>
-                          <span>Gender: {patient.gender}</span>
-                          <span>Phone: {patient.phone}</span>
-                          <span>Email: {patient.email}</span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setEditingPatient({ ...patient })}
-                        >
-                          Edit
-                        </button>
-
-                        {userRole === 'ADMIN' && (
-  <button
-    type="button"
-    onClick={() => handlePatientDelete(patient)}
-  >
-    Delete
-  </button>
-)}
-                      </div>
-                    ))}
-
-                  {patients.length === 0 && (
-                    <p>No patients registered yet.</p>
-                  )}
-                </div>
-              </section>
+              <PatientDirectory
+                patients={patients}
+                searchTerm={searchTerm}
+                userRole={userRole}
+                onSearchChange={setSearchTerm}
+                onEdit={setEditingPatient}
+                onDelete={handlePatientDelete}
+                paymentMessage={paymentMessage}
+              />
             )}
 
-            {/* EDIT PATIENT */}
             {editingPatient && (
-              <section className="content-card">
-                <div className="section-heading">
-                  <h2>Edit Patient Details</h2>
-                </div>
-
-                <form
-                  className="booking-form"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    handlePatientUpdate()
-                  }}
-                >
-                  <label>Name</label>
-                  <input
-                    value={editingPatient.name}
-                    onChange={(e) =>
-                      setEditingPatient({
-                        ...editingPatient,
-                        name: e.target.value
-                      })
-                    }
-                    required
-                  />
-
-                  <label>Age</label>
-                  <input
-                    type="number"
-                    value={editingPatient.age}
-                    onChange={(e) =>
-                      setEditingPatient({
-                        ...editingPatient,
-                        age: Number(e.target.value)
-                      })
-                    }
-                    required
-                  />
-
-                  <label>Gender</label>
-                  <input
-                    value={editingPatient.gender}
-                    onChange={(e) =>
-                      setEditingPatient({
-                        ...editingPatient,
-                        gender: e.target.value
-                      })
-                    }
-                    required
-                  />
-
-                  <label>Phone</label>
-                  <input
-                    value={editingPatient.phone}
-                    onChange={(e) =>
-                      setEditingPatient({
-                        ...editingPatient,
-                        phone: e.target.value
-                      })
-                    }
-                    required
-                  />
-
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    value={editingPatient.email}
-                    onChange={(e) =>
-                      setEditingPatient({
-                        ...editingPatient,
-                        email: e.target.value
-                      })
-                    }
-                    required
-                  />
-
-                  <label>Date of Birth</label>
-                  <input
-                    type="date"
-                    value={editingPatient.dateOfBirth || ''}
-                    onChange={(e) =>
-                      setEditingPatient({
-                        ...editingPatient,
-                        dateOfBirth: e.target.value
-                      })
-                    }
-                  />
-
-                  <button type="submit">Save Changes</button>
-
-                  <button
-                    type="button"
-                    onClick={() => setEditingPatient(null)}
-                  >
-                    Cancel
-                  </button>
-                </form>
-              </section>
+              <PatientEditForm
+                patient={editingPatient}
+                onChange={setEditingPatient}
+                onSave={handlePatientUpdate}
+                onCancel={() => setEditingPatient(null)}
+              />
             )}
 
-            {/* REGISTER PATIENT */}
             {activePage === 'Register Patient' && (
-              <section className="content-card">
-                <div className="section-heading">
-                  <div>
-                    <h2>Register New Patient</h2>
-                    <p>
-                      Enter patient details to add them to the hospital database.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="booking-form">
-                  <form onSubmit={handlePatientRegistration}>
-                    <label>Patient Name</label>
-                    <input
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      placeholder="Enter full name"
-                      required
-                    />
-
-                    <label>Age</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="120"
-                      value={newAge}
-                      onChange={(e) => setNewAge(e.target.value)}
-                      placeholder="Enter age"
-                      required
-                    />
-
-                    <label>Gender</label>
-                    <select
-                      value={newGender}
-                      onChange={(e) => setNewGender(e.target.value)}
-                      required
-                    >
-                      <option value="">Select gender</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-
-                    <label>Phone Number</label>
-                    <input
-                      type="tel"
-                      value={newPhone}
-                      onChange={(e) => setNewPhone(e.target.value)}
-                      placeholder="Enter phone number"
-                      required
-                    />
-
-                    <label>Email</label>
-                    <input
-                      type="email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="Enter email address"
-                      required
-                    />
-
-                    <label>Date of Birth</label>
-                    <input
-                      type="date"
-                      value={newDateOfBirth}
-                      onChange={(e) => setNewDateOfBirth(e.target.value)}
-                      required
-                    />
-
-                    <button className="submit-btn" type="submit">
-                      + Register Patient
-                    </button>
-
-                    {registrationMessage && (
-                      <p className="form-message">
-                        {registrationMessage}
-                      </p>
-                    )}
-                  </form>
-                </div>
-              </section>
+              <PatientRegistrationForm
+                newName={newName}
+                newAge={newAge}
+                newGender={newGender}
+                newPhone={newPhone}
+                newEmail={newEmail}
+                newDateOfBirth={newDateOfBirth}
+                registrationMessage={registrationMessage}
+                onNameChange={setNewName}
+                onAgeChange={setNewAge}
+                onGenderChange={setNewGender}
+                onPhoneChange={setNewPhone}
+                onEmailChange={setNewEmail}
+                onDateOfBirthChange={setNewDateOfBirth}
+                onSubmit={handlePatientRegistration}
+              />
             )}
-
 
 {activePage === 'Doctors' && userRole === 'ADMIN' && (
-  <section className="content-card">
-    <div className="section-heading">
-      <div>
-        <h2>Doctor Management</h2>
-        <p>View and manage registered doctors</p>
-      </div>
-
-      <span className="count-label">
-        {doctors.length} Doctors
-      </span>
-    </div>
-
-    <div className="patient-grid">
-      {doctors.map((doctor) => (
-        <div className="patient-card" key={doctor.id}>
-          <div className="patient-avatar">⚕</div>
-
-          <h3>{doctor.name}</h3>
-          <p>Doctor ID: #{doctor.id}</p>
-
-          <div className="patient-details">
-            <span>Specialization: {doctor.specialization}</span>
-            <span>Phone: {doctor.phone}</span>
-            <span>Email: {doctor.email}</span>
-            <span>Consultation Fee: ₹{doctor.consultationFee}</span>
-          </div>
-          <div className="card-actions">
-  <button
-    className="edit-btn"
-    onClick={() => handleEditDoctor(doctor)}
-  >
-    Edit
-  </button>
-
-  <button
-    className="delete-btn"
-    onClick={() => handleDeleteDoctor(doctor.id)}
-  >
-    Delete
-  </button>
-</div>
-{editingDoctorId === doctor.id && (
-  <form onSubmit={handleUpdateDoctor} className="booking-form">
-    <h3>Edit Doctor Details</h3>
-
-    <label>Doctor Name</label>
-    <input
-      value={editDoctorName}
-      onChange={(e) => setEditDoctorName(e.target.value)}
-      required
-    />
-
-    <label>Specialization</label>
-    <input
-      value={editSpecialization}
-      onChange={(e) => setEditSpecialization(e.target.value)}
-      required
-    />
-
-    <label>Phone</label>
-    <input
-      value={editDoctorPhone}
-      onChange={(e) => setEditDoctorPhone(e.target.value)}
-      required
-    />
-
-    <label>Email</label>
-    <input
-      type="email"
-      value={editDoctorEmail}
-      onChange={(e) => setEditDoctorEmail(e.target.value)}
-      required
-    />
-
-    <label>Consultation Fee (₹)</label>
-    <input
-      type="number"
-      min="0"
-      value={editConsultationFee}
-      onChange={(e) => setEditConsultationFee(e.target.value)}
-      required
-    />
-
-<label>Available Days</label>
-<input
-  value={editDoctorAvailableDays}
-  onChange={(e) => setEditDoctorAvailableDays(e.target.value)}
-  placeholder="e.g. Monday, Tuesday, Wednesday"
-  required
-/>
-
-<label>Morning Shift Start</label>
-<input
-  type="time"
-  value={editDoctorMorningStart}
-  onChange={(e) => setEditDoctorMorningStart(e.target.value)}
-  required
-/>
-
-<label>Morning Shift End</label>
-<input
-  type="time"
-  value={editDoctorMorningEnd}
-  onChange={(e) => setEditDoctorMorningEnd(e.target.value)}
-  required
-/>
-
-<label>Evening Shift Start</label>
-<input
-  type="time"
-  value={editDoctorEveningStart}
-  onChange={(e) => setEditDoctorEveningStart(e.target.value)}
-  required
-/>
-
-<label>Evening Shift End</label>
-<input
-  type="time"
-  value={editDoctorEveningEnd}
-  onChange={(e) => setEditDoctorEveningEnd(e.target.value)}
-  required
-/>
-
-    <button type="submit" className="submit-btn">
-      Save Changes
-    </button>
-
-    <button
-      type="button"
-      className="edit-btn"
-      onClick={() => setEditingDoctorId(null)}
-    >
-      Cancel
-    </button>
-  </form>
-)}
-        </div>
-      ))}
-
-      {doctors.length === 0 && (
-        <p>No doctors registered yet.</p>
-      )}
-    </div>
-    <div className="booking-form">
-  <h2>Register New Doctor</h2>
-  <p>Enter doctor details to add them to the hospital database.</p>
-
-  <form onSubmit={handleDoctorRegistration}>
-    <label>Doctor Name</label>
-    <input
-      value={newDoctorName}
-      onChange={(e) => setNewDoctorName(e.target.value)}
-      placeholder="Enter full name"
-      required
-    />
-
-    <label>Specialization</label>
-    <input
-      value={newSpecialization}
-      onChange={(e) => setNewSpecialization(e.target.value)}
-      placeholder="e.g. Cardiologist"
-      required
-    />
-
-    <label>Phone Number</label>
-    <input
-      type="tel"
-      value={newDoctorPhone}
-      onChange={(e) => setNewDoctorPhone(e.target.value)}
-      placeholder="Enter phone number"
-      required
-    />
-
-    <label>Email</label>
-    <input
-      type="email"
-      value={newDoctorEmail}
-      onChange={(e) => setNewDoctorEmail(e.target.value)}
-      placeholder="Enter email address"
-      required
-    />
-
-    <label>Consultation Fee (₹)</label>
-    <input
-      type="number"
-      min="0"
-      value={newConsultationFee}
-      onChange={(e) => setNewConsultationFee(e.target.value)}
-      placeholder="Enter fee"
-      required
-    />
-
-<label>Available Days</label>
-<input
-  value={newDoctorAvailableDays}
-  onChange={(e) => setNewDoctorAvailableDays(e.target.value)}
-  placeholder="e.g. Monday, Tuesday, Wednesday"
-  required
-/>
-
-
-<label>Morning Shift Start</label>
-<input
-  type="time"
-  value={newDoctorMorningStart}
-  onChange={(e) => setNewDoctorMorningStart(e.target.value)}
-  required
-/>
-
-<label>Morning Shift End</label>
-<input
-  type="time"
-  value={newDoctorMorningEnd}
-  onChange={(e) => setNewDoctorMorningEnd(e.target.value)}
-  required
-/>
-
-<label>Evening Shift Start</label>
-<input
-  type="time"
-  value={newDoctorEveningStart}
-  onChange={(e) => setNewDoctorEveningStart(e.target.value)}
-  required
-/>
-
-<label>Evening Shift End</label>
-<input
-  type="time"
-  value={newDoctorEveningEnd}
-  onChange={(e) => setNewDoctorEveningEnd(e.target.value)}
-  required
-/>
-
-
-    <button className="submit-btn" type="submit">
-      + Register Doctor
-    </button>
-
-    {doctorMessage && <p className="form-message">{doctorMessage}</p>}
-  </form>
-</div>
-  </section>
-)}
-
-
-            {/* APPOINTMENTS */}
-            {activePage === 'Appointments' && (
-              <section className="content-card">
-                <div className="section-heading">
-                  <div>
-                    <h2>Appointment Management</h2>
-                    <p>View all hospital appointments</p>
-                  </div>
-<div className="filter-container">
-  <label>Filter by Doctor:</label>
-  <select
-    value={selectedDoctorFilter}
-    onChange={(e) => setSelectedDoctorFilter(e.target.value)}
-  >
-    <option value="All">All Doctors</option>
-    {doctors.map((doctor) => (
-      <option key={doctor.id} value={String(doctor.id)}>
-        {doctor.name}
-      </option>
-    ))}
-  </select>
-</div>
-<div className="filter-container">
-  <label>Schedule Date:</label>
-  <input
-    type="date"
-    value={selectedScheduleDate}
-    onChange={(e) => setSelectedScheduleDate(e.target.value)}
-  />
-</div>
-                  <span className="count-label">
-                    {appointments.filter((appointment) => {
-  const matchesDoctor =
-    selectedDoctorFilter === 'All' ||
-    appointment.doctorName ===
-      doctors.find(
-        (doctor) => String(doctor.id) === selectedDoctorFilter
-      )?.name
-
-  const matchesDate =
-    appointment.appointmentDateTime?.slice(0, 10) ===
-    selectedScheduleDate
-
-  return matchesDoctor && matchesDate
-}).length} Appointments
-                  </span>
-                </div>
-
-                <AppointmentTable
-                 appointments={appointments.filter((appointment) => {
-  const matchesDoctor =
-    selectedDoctorFilter === 'All' ||
-    String(appointment.doctor?.id) === selectedDoctorFilter
-
-  const matchesDate =
-    appointment.appointmentDateTime?.slice(0, 10) ===
-    selectedScheduleDate
-
-  return matchesDoctor && matchesDate
-})}
-                  formatDate={formatDate}
-                  onCancel={handleCancel}
-                  onComplete={handleComplete}
-                  onReschedule={handleReschedule}
-                />
-
-                <div className="booking-form">
-                  <h2>Book New Appointment</h2>
-                  <p>
-                    Schedule an appointment for a registered patient.
-                  </p>
-
-                  <form onSubmit={handleBooking}>
-                    <label>Patient</label>
-                    <select
-                      value={patientId}
-                      onChange={(e) => setPatientId(e.target.value)}
-                      required
-                    >
-                      <option value="">Select a patient</option>
-
-                      {patients.map((patient) => (
-                        <option key={patient.id} value={patient.id}>
-                          {patient.name} (ID: {patient.id})
-                        </option>
-                      ))}
-                    </select>
-
-                    <label>Doctor</label>
-<select
-  value={selectedDoctorId}
-  onChange={(e) => setSelectedDoctorId(e.target.value)}
-  required
->
-  <option value="">Select a Doctor</option>
-  {doctors.map((doctor) => (
-    <option key={doctor.id} value={doctor.id}>
-      {doctor.name} - {doctor.specialization}
-    </option>
-  ))}
-</select>
-
-                   
-<label>Appointment Date</label>
-<input
-  type="date"
-  value={selectedDate}
-  min={new Date().toLocaleDateString('en-CA')}
-  onChange={(e) => {
-    setSelectedDate(e.target.value)
-    setAppointmentDateTime('')
-  }}
-  required
-/>
-
-<label>Available Time Slots</label>
-<select
-  value={appointmentDateTime}
-  onChange={(e) => setAppointmentDateTime(e.target.value)}
-  required
->
-  <option value="">Select a time slot</option>
-  {availableSlots.map((slot) => (
-    <option key={slot} value={slot}>
-      {new Date(slot).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })}
-    </option>
-  ))}
-</select>
-
-
-<label>Appointment Type</label>
-<select
-  value={appointmentType}
-  onChange={(e) => setAppointmentType(e.target.value)}
-  required
->
-  <option value="NEW_PATIENT">New Patient (30 min)</option>
-  <option value="FOLLOW_UP">Follow-up (15 min)</option>
-  <option value="GENERAL">General Consultation (20 min)</option>
-  <option value="COMPLEX">Complex Consultation (45 min)</option>
-</select>
-
-<p>
-  Estimated Duration: {
-    appointmentType === 'NEW_PATIENT' ? 30 :
-    appointmentType === 'FOLLOW_UP' ? 15 :
-    appointmentType === 'COMPLEX' ? 45 : 20
-  } minutes
-</p>
-
-{selectedDate && availableSlots.length === 0 && (
-  <p>No available slots for this date. Try another date.</p>
-)}
-
-                    <label>Reason for Visit</label>
-                    <input
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      placeholder="e.g. General Checkup"
-                      required
-                    />
-
-                    <button className="submit-btn" type="submit">
-                      + Book Appointment
-                    </button>
-                  </form>
-                </div>
-              </section>
+              <DoctorManagement
+                doctors={doctors}
+                editingDoctorId={editingDoctorId}
+                editDoctor={{
+                  name: editDoctorName,
+                  specialization: editSpecialization,
+                  phone: editDoctorPhone,
+                  email: editDoctorEmail,
+                  consultationFee: editConsultationFee,
+                  availableDays: editDoctorAvailableDays,
+                  morningStart: editDoctorMorningStart,
+                  morningEnd: editDoctorMorningEnd,
+                  eveningStart: editDoctorEveningStart,
+                  eveningEnd: editDoctorEveningEnd
+                }}
+                newDoctor={{
+                  name: newDoctorName,
+                  specialization: newSpecialization,
+                  phone: newDoctorPhone,
+                  email: newDoctorEmail,
+                  consultationFee: newConsultationFee,
+                  availableDays: newDoctorAvailableDays,
+                  morningStart: newDoctorMorningStart,
+                  morningEnd: newDoctorMorningEnd,
+                  eveningStart: newDoctorEveningStart,
+                  eveningEnd: newDoctorEveningEnd
+                }}
+                doctorMessage={doctorMessage}
+                onEditChange={(field, value) => {
+                  const setters = {
+                    name: setEditDoctorName,
+                    specialization: setEditSpecialization,
+                    phone: setEditDoctorPhone,
+                    email: setEditDoctorEmail,
+                    consultationFee: setEditConsultationFee,
+                    availableDays: setEditDoctorAvailableDays,
+                    morningStart: setEditDoctorMorningStart,
+                    morningEnd: setEditDoctorMorningEnd,
+                    eveningStart: setEditDoctorEveningStart,
+                    eveningEnd: setEditDoctorEveningEnd
+                  }
+                  setters[field](value)
+                }}
+                onNewChange={(field, value) => {
+                  const setters = {
+                    name: setNewDoctorName,
+                    specialization: setNewSpecialization,
+                    phone: setNewDoctorPhone,
+                    email: setNewDoctorEmail,
+                    consultationFee: setNewConsultationFee,
+                    availableDays: setNewDoctorAvailableDays,
+                    morningStart: setNewDoctorMorningStart,
+                    morningEnd: setNewDoctorMorningEnd,
+                    eveningStart: setNewDoctorEveningStart,
+                    eveningEnd: setNewDoctorEveningEnd
+                  }
+                  setters[field](value)
+                }}
+                onEditDoctor={handleEditDoctor}
+                onDeleteDoctor={handleDeleteDoctor}
+                onUpdateDoctor={handleUpdateDoctor}
+                onRegisterDoctor={handleDoctorRegistration}
+                onCancelEdit={() => setEditingDoctorId(null)}
+              />
             )}
 
-{/* BILLING */}
+            {activePage === 'Appointments' && (
+              <AppointmentManagement
+                appointments={appointments}
+                patients={patients}
+                doctors={doctors}
+                selectedDoctorFilter={selectedDoctorFilter}
+                selectedScheduleDate={selectedScheduleDate}
+                patientId={patientId}
+                selectedDoctorId={selectedDoctorId}
+                selectedDate={selectedDate}
+                appointmentDateTime={appointmentDateTime}
+                availableSlots={availableSlots}
+                appointmentType={appointmentType}
+                reason={reason}
+                formatDate={formatDate}
+                onDoctorFilterChange={setSelectedDoctorFilter}
+                onScheduleDateChange={setSelectedScheduleDate}
+                onPatientChange={setPatientId}
+                onDoctorChange={setSelectedDoctorId}
+                onDateChange={(value) => {
+                  setSelectedDate(value)
+                  setAppointmentDateTime('')
+                }}
+                onTimeChange={setAppointmentDateTime}
+                onAppointmentTypeChange={setAppointmentType}
+                onReasonChange={setReason}
+                onBooking={handleBooking}
+                onCancel={handleCancel}
+                onComplete={handleComplete}
+                onReschedule={handleReschedule}
+              />
+            )}
+
 {activePage === 'Billing' && (
-  <section className="content-card">
-    <div className="section-heading">
-      <div>
-        <h2>Billing & Payments</h2>
-        <p>Manage patient invoices and payments</p>
-      </div>
-      <span className="count-label">
-        {bills.length} Bills
-      </span>
-    </div>
-
-{userRole === 'ADMIN' && (
-  <div className="booking-form">
-    <h2>Generate New Bill</h2>
-    <p>Create an invoice for a registered patient.</p>
-
-    <form onSubmit={handleGenerateBill}>
-      <label>Patient</label>
-      <select
-        value={billingPatientId}
-        onChange={(e) => {
-          setBillingPatientId(e.target.value)
-          setBillingAppointmentId('')
-        }}
-        required
-      >
-        <option value="">Select a patient</option>
-        {patients.map((patient) => (
-          <option key={patient.id} value={patient.id}>
-            {patient.name} (ID: {patient.id})
-          </option>
-        ))}
-      </select>
-
-      <label>Appointment (Optional)</label>
-      <select
-        value={billingAppointmentId}
-        onChange={(e) => setBillingAppointmentId(e.target.value)}
-      >
-        <option value="">No appointment selected</option>
-        {appointments
-          .filter(
-            (appointment) =>
-              String(appointment.patient?.id) === billingPatientId &&
-              appointment.doctor
-          )
-          .map((appointment) => (
-            <option key={appointment.id} value={appointment.id}>
-              {appointment.doctorName} - {formatDate(appointment.appointmentDateTime)}
-            </option>
-          ))}
-      </select>
-
-      <label>Additional Charges (₹)</label>
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        value={additionalCharges}
-        onChange={(e) => setAdditionalCharges(e.target.value)}
-      />
-
-      <label>Discount (₹)</label>
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        value={discount}
-        onChange={(e) => setDiscount(e.target.value)}
-      />
-
-      <button
-        className="submit-btn"
-        type="submit"
-        disabled={billingLoading}
-      >
-        {billingLoading ? 'Generating...' : '+ Generate Bill'}
-      </button>
-    </form>
-
-    {billingMessage && (
-      <p className="form-message">{billingMessage}</p>
-    )}
-  </div>
-)}
-
-
-    <div className="patient-grid">
-      {bills.map((bill) => (
-        <div className="patient-card" key={bill.id}>
-          <h3>{bill.billNumber}</h3>
-
-          <p>Patient: {bill.patient?.name}</p>
-          <p>Doctor: {bill.doctorName}</p>
-          <p>Date: {formatDate(bill.billDate)}</p>
-
-          <p>
-            Total: ₹{Number(bill.totalAmount).toFixed(2)}
-          </p>
-
-          <p>
-            Paid: ₹{Number(bill.amountPaid).toFixed(2)}
-          </p>
-
-          <p>
-            Status: {bill.paymentStatus}
-          </p>
-
-{userRole === 'ADMIN' && bill.paymentStatus !== 'PAID' && (
-  <div className="booking-form">
-    <label>Record Payment (₹)</label>
-
-    <input
-      type="number"
-      min="0.01"
-      step="0.01"
-      placeholder="Enter payment amount"
-      value={paymentAmounts[bill.id] || ''}
-      onChange={(e) =>
-        setPaymentAmounts((previous) => ({
-          ...previous,
-          [bill.id]: e.target.value
-        }))
-      }
-    />
-
-    <button
-      className="submit-btn"
-      type="button"
-      onClick={() => handleRecordPayment(bill.id)}
-    >
-      Record Payment
-    </button>
-  </div>
-)}
-<button
-  className="submit-btn"
-  type="button"
-  onClick={() => handlePrintInvoice(bill)}
->
-  🖨 Print Invoice
-</button>
-
-        </div>
-      ))}
-
-      {bills.length === 0 && (
-        <p>No bills generated yet.</p>
-      )}
-    </div>
-  </section>
-)}
+              <BillingManagement
+                bills={bills}
+                patients={patients}
+                appointments={appointments}
+                userRole={userRole}
+                billingPatientId={billingPatientId}
+                billingAppointmentId={billingAppointmentId}
+                additionalCharges={additionalCharges}
+                discount={discount}
+                billingMessage={billingMessage}
+                billingLoading={billingLoading}
+                paymentAmounts={paymentAmounts}
+                paymentMessage={paymentMessage}
+                formatDate={formatDate}
+                onPatientChange={(value) => {
+                  setBillingPatientId(value)
+                  setBillingAppointmentId('')
+                }}
+                onAppointmentChange={setBillingAppointmentId}
+                onChargesChange={setAdditionalCharges}
+                onDiscountChange={setDiscount}
+                onPaymentAmountChange={(billId, value) =>
+                  setPaymentAmounts((previous) => ({
+                    ...previous,
+                    [billId]: value
+                  }))
+                }
+                onGenerateBill={handleGenerateBill}
+                onRecordPayment={handleRecordPayment}
+                onPrintInvoice={handlePrintInvoice}
+              />
+            )}
 
 {activePage === 'Medical Test Reports' && (
-  <section className="content-card">
-    <div className="section-heading">
-      <div>
-        <h2>Medical Test Reports</h2>
-        <p>Manage and view patient medical test records</p>
-      </div>
-      <span className="count-label">
-        {reports.length} Reports
-      </span>
-    </div>
-
-    {userRole === 'ADMIN' && (
-      <div className="booking-form">
-        <h2>Add New Test Report</h2>
-        <p>Create a medical test report for a registered patient.</p>
-
-        <form onSubmit={handleCreateReport}>
-          <label>Patient</label>
-          <select
-            value={reportPatientId}
-            onChange={(e) => setReportPatientId(e.target.value)}
-            required
-          >
-            <option value="">Select a patient</option>
-            {patients.map((patient) => (
-              <option key={patient.id} value={patient.id}>
-                {patient.name} (ID: {patient.id})
-              </option>
-            ))}
-          </select>
-
-          <label>Test Name</label>
-          <input
-            type="text"
-            placeholder="e.g. Complete Blood Count"
-            value={reportTestName}
-            onChange={(e) => setReportTestName(e.target.value)}
-            required
-          />
-
-          <label>Test Date</label>
-          <input
-            type="date"
-            value={reportTestDate}
-            onChange={(e) => setReportTestDate(e.target.value)}
-            required
-          />
-
-          <label>Test Result</label>
-          <textarea
-            placeholder="Enter test results"
-            value={reportResult}
-            onChange={(e) => setReportResult(e.target.value)}
-            required
-          />
-
-          <label>Additional Notes</label>
-          <textarea
-            placeholder="Optional observations or notes"
-            value={reportNotes}
-            onChange={(e) => setReportNotes(e.target.value)}
-          />
-
-          <button
-            className="submit-btn"
-            type="submit"
-            disabled={reportLoading}
-          >
-            {reportLoading ? 'Saving...' : '+ Add Test Report'}
-          </button>
-        </form>
-
-        {reportMessage && (
-          <p className="form-message">{reportMessage}</p>
-        )}
-      </div>
-    )}
-
-    <div className="booking-form">
-  <h3>Search & Filter Reports</h3>
-
-  <label>Search by patient or test name</label>
-  <input
-    type="text"
-    placeholder="Enter patient name or test name..."
-    value={reportSearch}
-    onChange={(e) => setReportSearch(e.target.value)}
-  />
-
-  <label>Filter by Patient</label>
-  <select
-    value={reportFilterPatientId}
-    onChange={(e) => setReportFilterPatientId(e.target.value)}
-  >
-    <option value="">All Patients</option>
-    {patients.map((patient) => (
-      <option key={patient.id} value={patient.id}>
-        {patient.name}
-      </option>
-    ))}
-  </select>
-</div>
-
-    <div className="patient-grid">
-      {reports
-  .filter((report) => {
-    const search = reportSearch.toLowerCase()
-
-    const matchesSearch =
-      report.testName.toLowerCase().includes(search) ||
-      report.patient?.name?.toLowerCase().includes(search)
-
-    const matchesPatient =
-      !reportFilterPatientId ||
-      String(report.patient?.id) === reportFilterPatientId
-
-    return matchesSearch && matchesPatient
-  })
-  .map((report) => (
-        <div className="patient-card" key={report.id}>
-          <h3>{report.testName}</h3>
-
-          <p>Patient: {report.patient?.name}</p>
-          <p>Report ID: {report.id}</p>
-          <p>Test Date: {report.testDate}</p>
-
-          <p>
-            <strong>Result:</strong> {report.result}
-          </p>
-
-          {report.notes && (
-            <p>
-              <strong>Notes:</strong> {report.notes}
-            </p>
-          )}
-          <button
-  className="submit-btn"
-  type="button"
-  onClick={() => handlePrintReport(report)}
->
-  🖨 Print Report
-</button>
-          {userRole === 'ADMIN' && (
-  <div className="action-buttons">
-    <button
-      className="submit-btn"
-      type="button"
-      onClick={() => {
-        setEditingReportId(report.id)
-        setEditTestName(report.testName)
-        setEditTestDate(report.testDate)
-        setEditResult(report.result)
-        setEditNotes(report.notes || '')
-      }}
-    >
-      Edit Report
-    </button>
-
-    <button
-      className="submit-btn"
-      type="button"
-      onClick={() => handleDeleteReport(report.id)}
-    >
-      Delete Report
-    </button>
-  </div>
-)}
-{editingReportId === report.id && (
-  <form onSubmit={handleUpdateReport} className="booking-form">
-    <h3>Edit Medical Test Report</h3>
-
-    <label>Test Name</label>
-    <input
-      value={editTestName}
-      onChange={(e) => setEditTestName(e.target.value)}
-      required
-    />
-
-    <label>Test Date</label>
-    <input
-      type="date"
-      value={editTestDate}
-      onChange={(e) => setEditTestDate(e.target.value)}
-      required
-    />
-
-    <label>Result</label>
-    <textarea
-      value={editResult}
-      onChange={(e) => setEditResult(e.target.value)}
-      required
-    />
-
-    <label>Notes</label>
-    <textarea
-      value={editNotes}
-      onChange={(e) => setEditNotes(e.target.value)}
-    />
-
-    <button className="submit-btn" type="submit">
-      Save Changes
-    </button>
-
-    <button
-      className="submit-btn"
-      type="button"
-      onClick={() => setEditingReportId(null)}
-    >
-      Cancel
-    </button>
-  </form>
-)}
-        </div>
-      ))}
-
-      {reports.filter((report) => {
-  const search = reportSearch.toLowerCase()
-  return (
-    (report.testName.toLowerCase().includes(search) ||
-      report.patient?.name?.toLowerCase().includes(search)) &&
-    (!reportFilterPatientId ||
-      String(report.patient?.id) === reportFilterPatientId)
-  )
-}).length === 0 && (
-        <p>No medical test reports available yet.</p>
-      )}
-    </div>
-  </section>
-)}
-
+              <MedicalTestReports
+                reports={reports}
+                patients={patients}
+                userRole={userRole}
+                reportPatientId={reportPatientId}
+                reportTestName={reportTestName}
+                reportTestDate={reportTestDate}
+                reportResult={reportResult}
+                reportNotes={reportNotes}
+                reportMessage={reportMessage}
+                reportLoading={reportLoading}
+                reportSearch={reportSearch}
+                reportFilterPatientId={reportFilterPatientId}
+                editingReportId={editingReportId}
+                editReport={{
+                  testName: editTestName,
+                  testDate: editTestDate,
+                  result: editResult,
+                  notes: editNotes
+                }}
+                onCreateChange={(field, value) => {
+                  const setters = {
+                    testName: setReportTestName,
+                    testDate: setReportTestDate,
+                    result: setReportResult,
+                    notes: setReportNotes
+                  }
+                  setters[field](value)
+                }}
+                onEditChange={(field, value) => {
+                  const setters = {
+                    testName: setEditTestName,
+                    testDate: setEditTestDate,
+                    result: setEditResult,
+                    notes: setEditNotes
+                  }
+                  setters[field](value)
+                }}
+                onPatientChange={setReportPatientId}
+                onSearchChange={setReportSearch}
+                onFilterChange={setReportFilterPatientId}
+                onCreate={handleCreateReport}
+                onUpdate={handleUpdateReport}
+                onStartEdit={(report) => {
+                  setEditingReportId(report.id)
+                  setEditTestName(report.testName)
+                  setEditTestDate(report.testDate)
+                  setEditResult(report.result)
+                  setEditNotes(report.notes || '')
+                }}
+                onCancelEdit={() => setEditingReportId(null)}
+                onDelete={handleDeleteReport}
+                onPrint={handlePrintReport}
+              />
+            )}
 
           </>
         )}
@@ -2681,119 +1503,4 @@ page === 'Medical Test Reports' ? '☤' : '▣'}
   )
 }
 
-
-// APPOINTMENT TABLE COMPONENT
-
-
-function AppointmentTable({
-  appointments,
-  formatDate,
-  onCancel,
-  onComplete,
-  onReschedule
-}: {
-  appointments: Appointment[]
-  formatDate: (date: string) => string
-  onCancel: (id: number) => void
-  onComplete: (id: number) => void
-  onReschedule: (id: number) => void
-}) {
-  return (
-    <div className="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Patient</th>
-            <th>Doctor</th>
-            <th>Date & Time</th>
-            <th>Appointment Type</th>
-<th>Duration</th>
-            <th>Reason</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {appointments.map((appointment) => (
-            <tr key={appointment.id}>
-              <td>
-                <strong>
-                  {appointment.patient?.name ?? 'Unknown'}
-                </strong>
-                <span className="sub-text">
-                  ID: #{appointment.patient?.id ?? '-'}
-                </span>
-              </td>
-
-              <td>{appointment.doctorName}</td>
-
-              <td>
-                {formatDate(appointment.appointmentDateTime)}
-              </td>
-              <td>
-  {appointment.appointmentType
-    ? appointment.appointmentType.replaceAll('_', ' ')
-    : '-'}
-</td>
-
-<td>
-  {appointment.estimatedDurationMinutes != null
-    ? `${appointment.estimatedDurationMinutes} min`
-    : '-'}
-</td>
-
-              <td>{appointment.reason}</td>
-
-              <td>
-                <span
-                  className={`status-badge ${appointment.status.toLowerCase()}`}
-                >
-                  {appointment.status}
-                </span>
-              </td>
-
-              <td>
-                {appointment.status === 'SCHEDULED' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => onReschedule(appointment.id)}
-                    >
-                      Reschedule
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => onComplete(appointment.id)}
-                    >
-                      Complete
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => onCancel(appointment.id)}
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <span>No actions available</span>
-                )}
-              </td>
-            </tr>
-          ))}
-
-          {appointments.length === 0 && (
-            <tr>
-              <td colSpan={8} className="empty-state">
-                No appointments found.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
 export default App

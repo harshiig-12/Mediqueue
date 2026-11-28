@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Security files
+*.p12
+*.jks
+*.keystore
+*.pem
+*.key
+
+# Local database and logs
+*.db
+*.sqlite
+*.sqlite3
+*.log

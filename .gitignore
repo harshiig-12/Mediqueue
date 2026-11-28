@@ -19,3 +19,18 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 backend/src/main/resources/application.properties
+
+@"
+
+# Security files
+*.p12
+*.jks
+*.keystore
+*.pem
+*.key
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+"@ | Add-Content .gitignore
